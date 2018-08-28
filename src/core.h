@@ -18,6 +18,7 @@ class CVC;
 class Action {
   public:
     Action(Character* actor, double score);
+    virtual ~Action();
     //Get this action's actor (the character taking the action)
     Character* GetActor();
     void SetActor(Character* actor);
@@ -34,7 +35,7 @@ class Action {
     virtual bool IsValid(const CVC& gamestate) = 0;
 
     //Have this action take effect by the given character
-    virtual void TakeEffect(const CVC& gamestate) = 0;
+    virtual void TakeEffect(CVC& gamestate) = 0;
 
   private:
     Character* actor_;
@@ -47,7 +48,7 @@ class TrivialAction : public Action {
 
     //implementation of Action
     bool IsValid(const CVC& gamestate);
-    void TakeEffect(const CVC& gamestate);
+    void TakeEffect(CVC& gamestate);
 
 };
 

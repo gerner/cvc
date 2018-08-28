@@ -8,8 +8,8 @@ int main(int argc, char** argv) {
     printf("creating CVC\n");
     std::unique_ptr<DecisionEngine> d;
     std::vector<std::unique_ptr<Character>> c;
-    c.push_back(std::move(std::unique_ptr<Character>()));
-    c.push_back(std::move(std::unique_ptr<Character>()));
+    c.push_back(std::unique_ptr<Character>());
+    c.push_back(std::unique_ptr<Character>());
 
     CVC cvc(std::move(d), std::move(c));
 

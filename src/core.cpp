@@ -17,6 +17,9 @@ Action::Action(Character* actor, double score) {
     this->score_ = score;
 }
 
+Action::~Action() {
+}
+
 Character* Action::GetActor() {
     return this->actor_;
 }
@@ -40,16 +43,14 @@ bool TrivialAction::IsValid(const CVC& gamestate) {
     return true;
 }
 
-void TrivialAction::TakeEffect(const CVC& gamestate) {
+void TrivialAction::TakeEffect(CVC& gamestate) {
     printf("stuff\n");
 }
 
 std::vector<std::unique_ptr<Action>> DecisionEngine::EnumerateActions(const CVC& cvc, Character* character) {
     std::vector<std::unique_ptr<Action>> ret;
 
-    std::unique_ptr<TrivialAction> a(new TrivialAction(character, 1.0));
-
-    ret.push_back(std::move(a));
+    ret.push_back(std::make_unique<TrivialAction>(character, 1.0));
 
     return ret;
 }
@@ -94,7 +95,7 @@ void CVC::EvaluateQueuedActions() {
 
 void CVC::ChooseActions() {
     //go through list of all characters
-    for(auto&& character: this->characters_) {
+    for(auto& character: this->characters_) {
         //run the decision making loop for each:
         double stop_prob = 0.7;
         while(true) {

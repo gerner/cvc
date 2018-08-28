@@ -1,5 +1,6 @@
 #include <vector>
 #include <memory>
+#include <random>
 
 #include "core.h"
 
@@ -56,7 +57,11 @@ std::vector<std::unique_ptr<Action>> DecisionEngine::EnumerateActions(const CVC&
 }
 
 
-CVC::CVC(std::unique_ptr<DecisionEngine> decision_engine, std::vector<std::unique_ptr<Character>> characters) {
+CVC::CVC(
+        std::unique_ptr<DecisionEngine> decision_engine,
+        std::vector<std::unique_ptr<Character>> characters,
+        std::mt19937 random_generator) {
+    this->random_generator_ = random_generator;
     this->decision_engine_ = std::move(decision_engine);
     this->characters_ = std::move(characters);
 }
@@ -94,13 +99,14 @@ void CVC::EvaluateQueuedActions() {
 }
 
 void CVC::ChooseActions() {
+    std::uniform_real_distribution<> dist(0.0, 1.0);
     //go through list of all characters
     for(auto& character: this->characters_) {
         //run the decision making loop for each:
         double stop_prob = 0.7;
         while(true) {
             //check to see if we should stop choosing actions
-            if(rand() / (RAND_MAX + 1.) < stop_prob) {
+            if(dist(random_generator_) < stop_prob) {
                 break;
             }
 
@@ -108,7 +114,7 @@ void CVC::ChooseActions() {
             std::vector<std::unique_ptr<Action>> actions = this->decision_engine_->EnumerateActions(*this, character.get());
 
             //choose one
-            double choice = rand() / (RAND_MAX + 1.);
+            double choice = dist(random_generator_);
             double sum_score = 0;
             //CVC is responsible for maintaining the lifecycle of the action
             for(auto& action: actions) {

@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <memory>
+#include <random>
 
 class Character {
   public:
@@ -61,13 +62,18 @@ class DecisionEngine {
 
 class CVC {
   public:
-    CVC(std::unique_ptr<DecisionEngine> decision_engine, std::vector<std::unique_ptr<Character>> characters);
+    CVC(
+            std::unique_ptr<DecisionEngine> decision_engine,
+            std::vector<std::unique_ptr<Character>> characters,
+            std::mt19937 random_generator);
 
     void GameLoop();
 
   private:
     void EvaluateQueuedActions();
     void ChooseActions();
+
+    std::mt19937 random_generator_;
 
     std::unique_ptr<DecisionEngine> decision_engine_;
     std::vector<std::unique_ptr<Character>> characters_;

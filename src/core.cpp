@@ -3,8 +3,25 @@
 #include <random>
 
 #include "core.h"
+#include "action.h"
 
-double Character::GetMoney() {
+RelationshipModifier::RelationshipModifier(Character* target, int start_date, int end_date, double opinion_modifier_) {
+    this->target_ = target;
+    this->start_date_ = start_date;
+    this->end_date_ = end_date;
+    this->opinion_modifier_ = opinion_modifier_;
+}
+
+Character::Character(int id, double money) {
+    this->id_ = id;
+    this->money_ = money;
+}
+
+int Character::GetId() const {
+    return this->id_;
+}
+
+double Character::GetMoney() const {
     return this->money_;
 }
 
@@ -12,40 +29,19 @@ void Character::SetMoney(double money) {
     this->money_ = money;
 }
 
-
-Action::Action(Character* actor, double score) {
-    this->actor_ = actor;
-    this->score_ = score;
+void Character::ExpireRelationships(int now) {
+    for (auto it = this->relationships_.begin(); it != this->relationships_.end();){
+        RelationshipModifier* relationship = it->get();
+        if(now >= relationship->end_date_) {
+            this->relationships_.erase(it++);
+        } else {
+            it++;
+        }
+    }
 }
 
-Action::~Action() {
-}
-
-Character* Action::GetActor() {
-    return this->actor_;
-}
-
-void Action::SetActor(Character* actor) {
-    this->actor_ = actor;
-}
-
-double Action::GetScore() {
-    return this->score_;
-}
-
-void Action::SetScore(double score) {
-    this->score_ = score;
-}
-
-TrivialAction::TrivialAction(Character* actor, double score) : Action(actor, score) {
-}
-
-bool TrivialAction::IsValid(const CVC& gamestate) {
-    return true;
-}
-
-void TrivialAction::TakeEffect(CVC& gamestate) {
-    printf("stuff\n");
+void Character::AddRelationship(std::unique_ptr<RelationshipModifier> relationship) {
+    this->relationships_.push_back(std::move(relationship));
 }
 
 std::vector<std::unique_ptr<Action>> DecisionEngine::EnumerateActions(const CVC& cvc, Character* character) {
@@ -61,6 +57,7 @@ CVC::CVC(
         std::unique_ptr<DecisionEngine> decision_engine,
         std::vector<std::unique_ptr<Character>> characters,
         std::mt19937 random_generator) {
+    this->ticks = 0;
     this->random_generator_ = random_generator;
     this->decision_engine_ = std::move(decision_engine);
     this->characters_ = std::move(characters);
@@ -68,7 +65,7 @@ CVC::CVC(
 
 void CVC::GameLoop() {
     //TODO: don't just loop for some random hardcoded number of iterations
-    for (int i = 0; i < 10; i++) {
+    for (; ticks < 100; ticks++) {
         //1. evaluate queued actions
         this->EvaluateQueuedActions();
         //2. choose actions for characters
@@ -78,6 +75,10 @@ void CVC::GameLoop() {
         //  maybe also use the record of the state as training
         printf(".");
     }
+}
+
+int CVC::Now() const {
+    return ticks;
 }
 
 void CVC::EvaluateQueuedActions() {

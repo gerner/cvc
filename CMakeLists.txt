@@ -9,7 +9,8 @@ project(sample_project CXX C)
 
 # Core library. *.cpp should be added here.
 add_library(core
-  ./src/core.cpp)
+  ./src/core.cpp
+  ./src/action.cpp)
 
 # Main entry point.
 add_executable(main

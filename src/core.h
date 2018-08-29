@@ -2,54 +2,39 @@
 #define CORE_H_
 
 #include <vector>
+#include <list>
 #include <memory>
 #include <random>
 
+#include "action.h"
+
+class Action;
+class CVC;
+class Character;
+
+struct RelationshipModifier {
+    RelationshipModifier(Character* target, int start_date, int end_date, double opinion_modifier_);
+
+    Character* target_;
+    int start_date_;
+    int end_date_;
+    double opinion_modifier_;
+    //TODO: some explanatory string about why
+};
+
 class Character {
   public:
-    double GetMoney();
+    Character(int id, double money_);
+    int GetId() const;
+    double GetMoney() const;
     void SetMoney(double money);
+    void AddRelationship(std::unique_ptr<RelationshipModifier> relationship);
+    void ExpireRelationships(int now);
 
   private:
+    int id_;
     double money_;
-};
-
-class CVC;
-
-class Action {
-  public:
-    Action(Character* actor, double score);
-    virtual ~Action();
-    //Get this action's actor (the character taking the action)
-    Character* GetActor();
-    void SetActor(Character* actor);
-
-    //Get the score this action's been given
-    //it's assumed this is normalized against alternative actions
-    //I'm not thrilled with this detail which makes it make sense ONLY in the
-    //context of some other instances
-    double GetScore();
-    void SetScore(double score);
-
-    //Determine if this particular action is valid in the given gamestate by
-    //the given character
-    virtual bool IsValid(const CVC& gamestate) = 0;
-
-    //Have this action take effect by the given character
-    virtual void TakeEffect(CVC& gamestate) = 0;
-
-  private:
-    Character* actor_;
-    double score_;
-};
-
-class TrivialAction : public Action {
-  public:
-    TrivialAction(Character *actor, double score);
-
-    //implementation of Action
-    bool IsValid(const CVC& gamestate);
-    void TakeEffect(CVC& gamestate);
+    std::list<std::unique_ptr<RelationshipModifier>> relationships_;
 
 };
 
@@ -69,9 +54,16 @@ class CVC {
 
     void GameLoop();
 
+    //gets the current clock tick
+    int Now() const;
+
+    const std::mt19937& GetRandomGenerator() const;
+
   private:
     void EvaluateQueuedActions();
     void ChooseActions();
+
+    int ticks;
 
     std::mt19937 random_generator_;
 

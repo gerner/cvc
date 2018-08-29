@@ -44,9 +44,8 @@ all possible effects) must leave the game in a consistent state if the action
 is valid. Actions might also be parameterized to target a particular character.
 
 PoC Actions:
-* Ask Y character for money: Y has to have the money, and will, with some probability, based on opinion give the character some money.
+* Ask Y character for money: Y has to have the money, and will, with some probability, based on opinion give the character some money. success reduces opinion of giver, failure reduces opinion of recipient
 * Steal money from Y character: Y has to have the money. Has some probaility of success (based on opinion). Has some probaility of detection (based on opinion).
-* Build rapport with Y character: Has some probability to improve the opinion of Y with the character.
 * Give Y character some money: Character has to have the money, gives Y money and increases Y's opinion (based on Y's current money and opinion)
 
 ### Choosing Actions

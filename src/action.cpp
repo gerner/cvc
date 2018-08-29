@@ -33,7 +33,7 @@ bool TrivialAction::IsValid(const CVC& gamestate) {
 }
 
 void TrivialAction::TakeEffect(CVC& gamestate) {
-    printf("stuff by %d\n", this->GetActor()->GetId());
+    printf("trivial by %d\n", this->GetActor()->GetId());
 }
 
 bool AskAction::IsValid(const CVC& gamestate) {
@@ -70,16 +70,24 @@ void StealAction::TakeEffect(CVC& gamestate) {
     //decrease opinion of actor by  a little bit (tried to get money stolen)
 }
 
+GiveAction::GiveAction(Character *actor, double score, Character *target, double gift_amount) : Action(actor, score) {
+    this->target_ = target;
+    this->gift_amount_ = gift_amount;
+}
+
 bool GiveAction::IsValid(const CVC& gamestate) {
     return this->GetActor()->GetMoney() > gift_amount_;
 }
 
 void GiveAction::TakeEffect(CVC& gamestate) {
     //transfer gift_amount_ from actor to target
-    this->GetActor()->SetMoney(this->GetActor()->GetMoney() - gift_amount_);
-    this->target_->SetMoney(this->target_->GetMoney() + gift_amount_);
+    this->GetActor()->SetMoney(this->GetActor()->GetMoney() - this->gift_amount_);
+    this->target_->SetMoney(this->target_->GetMoney() + this->gift_amount_);
 
     //increase opinion of target (got money)
-    this->target_->AddRelationship(std::make_unique<RelationshipModifier>(this->GetActor(), gamestate.Now(), gamestate.Now()+100, gift_amount_));
+    double opinion_buff = this->gift_amount_;
+    this->target_->AddRelationship(std::make_unique<RelationshipModifier>(this->GetActor(), gamestate.Now(), gamestate.Now()+10, opinion_buff));
+
+    printf("gift by %d to %d of %f (increase opinion by %f)\n", this->GetActor()->GetId(), this->target_->GetId(), this->gift_amount_, opinion_buff);
 }
 

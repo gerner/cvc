@@ -33,6 +33,7 @@ void Character::ExpireRelationships(int now) {
     for (auto it = this->relationships_.begin(); it != this->relationships_.end();){
         RelationshipModifier* relationship = it->get();
         if(now >= relationship->end_date_) {
+            printf("expiring %d -> %d (%f)\n", this->GetId(), relationship->target_->GetId(), relationship->opinion_modifier_);
             this->relationships_.erase(it++);
         } else {
             it++;
@@ -44,10 +45,46 @@ void Character::AddRelationship(std::unique_ptr<RelationshipModifier> relationsh
     this->relationships_.push_back(std::move(relationship));
 }
 
+double Character::GetOpinionOf(Character *target) const {
+    double opinion = 0.0;
+    //TODO: non-relationship-modified opinion traits
+
+    //TODO: rethink how we're organizing these relationships to make this faster
+    for(const auto& r : this->relationships_) {
+        if(r->target_ == target) {
+            opinion += r->opinion_modifier_;
+        }
+    }
+
+    return opinion;
+}
+
 std::vector<std::unique_ptr<Action>> DecisionEngine::EnumerateActions(const CVC& cvc, Character* character) {
     std::vector<std::unique_ptr<Action>> ret;
 
-    ret.push_back(std::make_unique<TrivialAction>(character, 1.0));
+    //TODO: pick some other character to give money to
+    Character* best_target = NULL;
+    double worst_opinion = std::numeric_limits<double>::max();
+    if(character->GetMoney() > 10.0) {
+        for(Character* target : cvc.GetCharacters()) {
+            //skip self
+            if(character == target) {
+                continue;
+            }
+
+            //pick the character that likes us the least
+            double opinion = target->GetOpinionOf(character);
+            if(opinion < worst_opinion) {
+                worst_opinion = opinion;
+                best_target = target;
+            }
+        }
+        if(best_target) {
+            ret.push_back(std::make_unique<GiveAction>(character, 0.5, best_target, character->GetMoney() * 0.1));
+        }
+    }
+
+    ret.push_back(std::make_unique<TrivialAction>(character, 0.5));
 
     return ret;
 }
@@ -57,15 +94,25 @@ CVC::CVC(
         std::unique_ptr<DecisionEngine> decision_engine,
         std::vector<std::unique_ptr<Character>> characters,
         std::mt19937 random_generator) {
-    this->ticks = 0;
+    this->ticks_ = 0;
     this->random_generator_ = random_generator;
     this->decision_engine_ = std::move(decision_engine);
     this->characters_ = std::move(characters);
 }
 
+std::vector<Character *> CVC::GetCharacters() const {
+    std::vector<Character *> ret;//(this->characters_.size());
+    for(auto& character : this->characters_) {
+        ret.push_back(character.get());
+    }
+    return ret;
+}
+
 void CVC::GameLoop() {
     //TODO: don't just loop for some random hardcoded number of iterations
-    for (; ticks < 100; ticks++) {
+    for (; this->ticks_ < 100; this->ticks_++) {
+        //0. expire relationships
+        this->ExpireRelationships();
         //1. evaluate queued actions
         this->EvaluateQueuedActions();
         //2. choose actions for characters
@@ -73,12 +120,31 @@ void CVC::GameLoop() {
 
         //TODO: expose state somehow to keep track of how stuff is going
         //  maybe also use the record of the state as training
-        printf(".");
+        this->PrintState();
+    }
+}
+
+void CVC::PrintState() const {
+    //TODO: probably don't want to always spit to stdout
+
+    printf("tick %d:\n", this->ticks_);
+    for(const auto& character: this->characters_) {
+        printf("%d	%f	", character->GetId(), character->GetMoney());
+        for(const auto& target: this->characters_) {
+            printf("%f	", character->GetOpinionOf(target.get()));
+        }
+        printf("\n");
     }
 }
 
 int CVC::Now() const {
-    return ticks;
+    return this->ticks_;
+}
+
+void CVC::ExpireRelationships() {
+    for(const auto& character: this->characters_) {
+        character->ExpireRelationships(this->Now());
+    }
 }
 
 void CVC::EvaluateQueuedActions() {
@@ -113,6 +179,11 @@ void CVC::ChooseActions() {
 
             //enumerate and score actions
             std::vector<std::unique_ptr<Action>> actions = this->decision_engine_->EnumerateActions(*this, character.get());
+
+            //we assume if there's no actions there will not be any this tick
+            if(actions.empty()) {
+                break;
+            }
 
             //choose one
             double choice = dist(random_generator_);

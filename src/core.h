@@ -30,6 +30,7 @@ class Character {
     void SetMoney(double money);
     void AddRelationship(std::unique_ptr<RelationshipModifier> relationship);
     void ExpireRelationships(int now);
+    double GetOpinionOf(Character *target) const;
 
   private:
     int id_;
@@ -52,7 +53,10 @@ class CVC {
             std::vector<std::unique_ptr<Character>> characters,
             std::mt19937 random_generator);
 
+    std::vector<Character *> GetCharacters() const;
+
     void GameLoop();
+    void PrintState() const;
 
     //gets the current clock tick
     int Now() const;
@@ -60,10 +64,11 @@ class CVC {
     const std::mt19937& GetRandomGenerator() const;
 
   private:
+    void ExpireRelationships();
     void EvaluateQueuedActions();
     void ChooseActions();
 
-    int ticks;
+    int ticks_;
 
     std::mt19937 random_generator_;
 

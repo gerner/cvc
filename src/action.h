@@ -74,7 +74,7 @@ class StealAction : public Action {
 //GiveAction: give money to target character, increases opinion depending on other opinion modifiers
 class GiveAction : public Action {
   public:
-    GiveAction(Character *actor, double score);
+    GiveAction(Character *actor, double score, Character *target, double gift_amount);
 
     //implementation of Action
     bool IsValid(const CVC& gamestate);

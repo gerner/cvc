@@ -61,7 +61,7 @@ class CVC {
     //gets the current clock tick
     int Now() const;
 
-    const std::mt19937& GetRandomGenerator() const;
+    std::mt19937& GetRandomGenerator();
 
   private:
     void ExpireRelationships();

@@ -46,7 +46,7 @@ class TrivialAction : public Action {
 //AskAction: ask target character for money, they accept with some chance increasing with opinion
 class AskAction : public Action {
   public:
-    AskAction(Character *actor, double score);
+    AskAction(Character *actor, double score, Character *target, double request_amount);
 
     //implementation of Action
     bool IsValid(const CVC& gamestate);

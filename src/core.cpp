@@ -62,7 +62,7 @@ double Character::GetOpinionOf(Character *target) const {
 std::vector<std::unique_ptr<Action>> DecisionEngine::EnumerateActions(const CVC& cvc, Character* character) {
     std::vector<std::unique_ptr<Action>> ret;
 
-    //TODO: pick some other character to give money to
+    //GiveAction
     Character* best_target = NULL;
     double worst_opinion = std::numeric_limits<double>::max();
     if(character->GetMoney() > 10.0) {
@@ -80,11 +80,35 @@ std::vector<std::unique_ptr<Action>> DecisionEngine::EnumerateActions(const CVC&
             }
         }
         if(best_target) {
-            ret.push_back(std::make_unique<GiveAction>(character, 0.5, best_target, character->GetMoney() * 0.1));
+            ret.push_back(std::make_unique<GiveAction>(character, 0.4, best_target, character->GetMoney() * 0.1));
         }
     }
 
-    ret.push_back(std::make_unique<TrivialAction>(character, 0.5));
+    //AskAction
+    best_target = NULL;
+    double best_opinion = 0.0;
+    for(Character* target : cvc.GetCharacters()) {
+        //skip self
+        if(character == target) {
+            continue;
+        }
+
+        if(target->GetMoney() <= 10.0) {
+            continue;
+        }
+
+        //pick the character that likes us the least
+        double opinion = target->GetOpinionOf(character);
+        if(opinion > best_opinion) {
+            best_opinion = opinion;
+            best_target = target;
+        }
+    }
+    if(best_target) {
+        ret.push_back(std::make_unique<AskAction>(character, 0.4, best_target, 10.0));
+    }
+
+    ret.push_back(std::make_unique<TrivialAction>(character, 0.2));
 
     return ret;
 }
@@ -110,7 +134,7 @@ std::vector<Character *> CVC::GetCharacters() const {
 
 void CVC::GameLoop() {
     //TODO: don't just loop for some random hardcoded number of iterations
-    for (; this->ticks_ < 100; this->ticks_++) {
+    for (; this->ticks_ < 1000; this->ticks_++) {
         //0. expire relationships
         this->ExpireRelationships();
         //1. evaluate queued actions
@@ -139,6 +163,10 @@ void CVC::PrintState() const {
 
 int CVC::Now() const {
     return this->ticks_;
+}
+
+std::mt19937& CVC::GetRandomGenerator() {
+    return this->random_generator_;
 }
 
 void CVC::ExpireRelationships() {

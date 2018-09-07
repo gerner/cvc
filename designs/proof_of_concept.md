@@ -65,3 +65,28 @@ Valid actions must be enumerated and scored. Because valid actions can be
 parameterized (with a target), we might simplify the space by choosing one
 target for each action.
 
+#### Strawman
+
+actions each generate a feature vector for making the decision
+run a model on that to generate a score
+the score will try and predict the ultimate balance the character would have if
+they take this action
+
+simulate to build training data
+output the vector, label with simulation's result
+
+format will be:
+`user_id \t action_id \t feature_vector_tab_separated`
+
+train a model on it for `action_id`
+
+given a bunch of actions
+score parameterized feature vectors for each based on game state
+
+choose action(s) to take
+output corresponding feature vector for those action(s) taken
+run simulation
+copy final score for that user against all the actions they take
+
+
+

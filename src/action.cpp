@@ -3,15 +3,16 @@
 #include "action.h"
 #include "core.h"
 
-Action::Action(Character* actor, double score) {
+Action::Action(Character* actor, double score, std::vector<double> features) {
     this->actor_ = actor;
     this->score_ = score;
+    this->feature_vector_ = features;
 }
 
 Action::~Action() {
 }
 
-Character* Action::GetActor() {
+Character* Action::GetActor() const {
     return this->actor_;
 }
 
@@ -19,7 +20,7 @@ void Action::SetActor(Character* actor) {
     this->actor_ = actor;
 }
 
-double Action::GetScore() {
+double Action::GetScore() const {
     return this->score_;
 }
 
@@ -27,7 +28,15 @@ void Action::SetScore(double score) {
     this->score_ = score;
 }
 
-TrivialAction::TrivialAction(Character* actor, double score) : Action(actor, score) {
+std::vector<double> Action::GetFeatureVector() const {
+    return this->feature_vector_;
+}
+
+void Action::SetFeatureVector(std::vector<double> feature_vector) {
+    this->feature_vector_ = feature_vector;
+}
+
+TrivialAction::TrivialAction(Character* actor, double score, std::vector<double> features) : Action(actor, score, features) {
 }
 
 bool TrivialAction::IsValid(const CVC& gamestate) {
@@ -38,7 +47,7 @@ void TrivialAction::TakeEffect(CVC& gamestate) {
     printf("trivial by %d\n", this->GetActor()->GetId());
 }
 
-AskAction::AskAction(Character *actor, double score, Character *target, double request_amount) : Action(actor, score) {
+AskAction::AskAction(Character *actor, double score, std::vector<double> features, Character *target, double request_amount) : Action(actor, score, features) {
     this->target_ = target;
     this->request_amount_ = request_amount;
 }
@@ -93,7 +102,7 @@ void StealAction::TakeEffect(CVC& gamestate) {
     //decrease opinion of actor by  a little bit (tried to get money stolen)
 }
 
-GiveAction::GiveAction(Character *actor, double score, Character *target, double gift_amount) : Action(actor, score) {
+GiveAction::GiveAction(Character *actor, double score, std::vector<double> features, Character *target, double gift_amount) : Action(actor, score, features) {
     this->target_ = target;
     this->gift_amount_ = gift_amount;
 }

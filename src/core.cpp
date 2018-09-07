@@ -1,6 +1,10 @@
 #include <vector>
 #include <memory>
 #include <random>
+#include <cassert>
+#include <stdio.h>
+#include <sstream>
+#include <iterator>
 
 #include "core.h"
 #include "action.h"
@@ -63,8 +67,8 @@ std::vector<std::unique_ptr<Action>> DecisionEngine::EnumerateActions(const CVC&
                 best_target = target;
             }
         }
-        if (best_target) {
-            ret.push_back(std::make_unique<GiveAction>(character, 0.4, best_target, character->GetMoney() * 0.1));
+        if(best_target) {
+            ret.push_back(std::make_unique<GiveAction>(character, 0.4, std::vector<double>({1.0, 0.2}), best_target, character->GetMoney() * 0.1));
         }
     }
 
@@ -88,11 +92,11 @@ std::vector<std::unique_ptr<Action>> DecisionEngine::EnumerateActions(const CVC&
             best_target = target;
         }
     }
-    if (best_target) {
-        ret.push_back(std::make_unique<AskAction>(character, 0.4, best_target, 10.0));
+    if(best_target) {
+        ret.push_back(std::make_unique<AskAction>(character, 0.4, std::vector<double>({0.7, 0.5}), best_target, 10.0));
     }
 
-    ret.push_back(std::make_unique<TrivialAction>(character, 0.2));
+    ret.push_back(std::make_unique<TrivialAction>(character, 0.2, std::vector<double>()));
 
     return ret;
 }
@@ -101,11 +105,13 @@ std::vector<std::unique_ptr<Action>> DecisionEngine::EnumerateActions(const CVC&
 CVC::CVC(
         std::unique_ptr<DecisionEngine> decision_engine,
         std::vector<std::unique_ptr<Character>> characters,
-        std::mt19937 random_generator) {
+        std::mt19937 random_generator,
+        FILE *action_log) {
     this->ticks_ = 0;
     this->random_generator_ = random_generator;
     this->decision_engine_ = std::move(decision_engine);
     this->characters_ = std::move(characters);
+    this->action_log_ = action_log;
 }
 
 std::vector<Character*> CVC::GetCharacters() const {
@@ -164,9 +170,16 @@ void CVC::EvaluateQueuedActions() {
             continue;
         }
 
+        //spit out the action vector:
+        this->LogAction(action.get());
+
         //let the action's effect play out
         //  this includes any character interaction
         action->TakeEffect(*this);
+    }
+
+    if(this->action_log_) {
+        fflush(this->action_log_);
     }
 
     //lastly, clear all the actions
@@ -194,12 +207,13 @@ void CVC::ChooseActions() {
             }
 
             //choose one
-            double choice = dist(random_generator_);
+            double choice = dist(this->random_generator_);
             double sum_score = 0;
             //CVC is responsible for maintaining the lifecycle of the action
             for (auto& action: actions) {
                 sum_score += action->GetScore();
                 if (choice < sum_score) {
+                    assert(action->IsValid(*this));
                     //keep this one action
                     this->queued_actions_.push_back(std::move(action));
                     //rest of the actions will go out of scope and 
@@ -210,5 +224,22 @@ void CVC::ChooseActions() {
             //update stop_prob
             stop_prob = 1.0 - (1.0 - stop_prob) * 0.2;
         }
+    }
+}
+
+void CVC::LogAction(const Action* action) {
+    //TODO: log the action to some action log
+    //  tick
+    //  user id
+    //  action id
+    //  feature vector
+    //fprintf(this->action_log_, "%d\t%d\t%s\t%d\t%s\n", this->ticks_, action->GetActor()->GetId(), _action->GetClassId(), _action->GetScore(), join(_action->GetFeatureVector(), "\t"))
+    if(this->action_log_) {
+
+        std::vector<double> features = action->GetFeatureVector();
+        std::ostringstream s;
+        std::copy(features.begin(), features.end(), std::ostream_iterator<double>(s, "\t"));
+
+        fprintf(this->action_log_, "%d\t%d\t%s\t%f\t%s\n", this->ticks_, action->GetActor()->GetId(), typeid(*action).name(), action->GetScore(), s.str().c_str());
     }
 }

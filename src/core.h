@@ -5,6 +5,7 @@
 #include <list>
 #include <memory>
 #include <random>
+#include <stdio.h>
 
 #include "action.h"
 
@@ -63,7 +64,8 @@ class CVC {
     CVC(
             std::unique_ptr<DecisionEngine> decision_engine,
             std::vector<std::unique_ptr<Character>> characters,
-            std::mt19937 random_generator);
+            std::mt19937 random_generator,
+            FILE *action_log_);
 
     std::vector<Character*> GetCharacters() const;
 
@@ -80,6 +82,9 @@ class CVC {
     void EvaluateQueuedActions();
     void ChooseActions();
 
+    void LogAction(const Action* action);
+
+    FILE *action_log_;
     int ticks_;
 
     std::mt19937 random_generator_;

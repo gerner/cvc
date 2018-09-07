@@ -8,17 +8,20 @@ class Character;
 
 class Action {
   public:
-    Action(Character* actor, double score);
+    Action(Character* actor, double score, std::vector<double> features);
     virtual ~Action();
     //Get this action's actor (the character taking the action)
-    Character* GetActor();
+    Character* GetActor() const;
     void SetActor(Character* actor);
+
+    std::vector<double> GetFeatureVector() const;
+    void SetFeatureVector(std::vector<double> feature_vector);
 
     //Get the score this action's been given
     //it's assumed this is normalized against alternative actions
     //I'm not thrilled with this detail which makes it make sense ONLY in the
     //context of some other instances
-    double GetScore();
+    double GetScore() const;
     void SetScore(double score);
 
     //Determine if this particular action is valid in the given gamestate by
@@ -29,13 +32,14 @@ class Action {
     virtual void TakeEffect(CVC& gamestate) = 0;
 
   private:
+    std::vector<double> feature_vector_;
     Character* actor_;
     double score_;
 };
 
 class TrivialAction : public Action {
   public:
-    TrivialAction(Character *actor, double score);
+    TrivialAction(Character *actor, double score, std::vector<double> features);
 
     //implementation of Action
     bool IsValid(const CVC& gamestate);
@@ -46,7 +50,7 @@ class TrivialAction : public Action {
 //AskAction: ask target character for money, they accept with some chance increasing with opinion
 class AskAction : public Action {
   public:
-    AskAction(Character *actor, double score, Character *target, double request_amount);
+    AskAction(Character *actor, double score, std::vector<double> features, Character *target, double request_amount);
 
     //implementation of Action
     bool IsValid(const CVC& gamestate);
@@ -60,7 +64,7 @@ class AskAction : public Action {
 //StealAction: (try to) steal money from target character, succeeds with chance increasing with opinion, detected with chance increasing with opinion
 class StealAction : public Action {
   public:
-    StealAction(Character *actor, double score);
+    StealAction(Character *actor, double score, std::vector<double> features);
 
     //implementation of Action
     bool IsValid(const CVC& gamestate);
@@ -74,7 +78,7 @@ class StealAction : public Action {
 //GiveAction: give money to target character, increases opinion depending on other opinion modifiers
 class GiveAction : public Action {
   public:
-    GiveAction(Character *actor, double score, Character *target, double gift_amount);
+    GiveAction(Character *actor, double score, std::vector<double> features, Character *target, double gift_amount);
 
     //implementation of Action
     bool IsValid(const CVC& gamestate);

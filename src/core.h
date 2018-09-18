@@ -7,9 +7,6 @@
 #include <random>
 #include <stdio.h>
 
-#include "action.h"
-
-class Action;
 class CVC;
 class Character;
 
@@ -45,45 +42,32 @@ class Character {
 
 };
 
-class DecisionEngine {
- public:
-  // TODO: what's the right return type here? the idea is that this is a
-  // factory of scored actions in a vector
-  std::vector<std::unique_ptr<Action>> EnumerateActions(const CVC& cvc,
-                                                        Character* character);
-};
-
 class CVC {
  public:
-  CVC(std::unique_ptr<DecisionEngine> decision_engine,
-      std::vector<std::unique_ptr<Character>> characters,
-      std::mt19937 random_generator, FILE* action_log_);
+  CVC(std::vector<std::unique_ptr<Character>> characters,
+      std::mt19937 random_generator);
 
   std::vector<Character*> GetCharacters() const;
 
-  void GameLoop();
   void PrintState() const;
 
   // gets the current clock tick
-  int Now() const;
+  int Now() {
+    return ticks_;
+  }
+
+  void Tick() {
+    ticks_++;
+  }
+
+  void ExpireRelationships();
 
   std::mt19937* GetRandomGenerator() { return &this->random_generator_; }
 
  private:
-  void ExpireRelationships();
-  void EvaluateQueuedActions();
-  void ChooseActions();
-
-  void LogAction(const Action* action);
-
-  FILE* action_log_;
   int ticks_;
-
   std::mt19937 random_generator_;
-
-  std::unique_ptr<DecisionEngine> decision_engine_;
   std::vector<std::unique_ptr<Character>> characters_;
-  std::vector<std::unique_ptr<Action>> queued_actions_;
 
 };
 

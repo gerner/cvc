@@ -2,48 +2,15 @@
 #define ACTION_H_
 
 #include "core.h"
-
-class CVC;
-class Character;
-
-class Action {
- public:
-  Action(Character* actor, double score, std::vector<double> features);
-  virtual ~Action();
-  // Get this action's actor (the character taking the action)
-  Character* GetActor() const;
-  void SetActor(Character* actor);
-
-  std::vector<double> GetFeatureVector() const;
-  void SetFeatureVector(std::vector<double> feature_vector);
-
-  // Get the score this action's been given
-  // it's assumed this is normalized against alternative actions
-  // I'm not thrilled with this detail which makes it make sense ONLY in the
-  // context of some other instances
-  double GetScore() const;
-  void SetScore(double score);
-
-  // Determine if this particular action is valid in the given gamestate by
-  // the given character
-  virtual bool IsValid(const CVC& gamestate) = 0;
-
-  // Have this action take effect by the given character
-  virtual void TakeEffect(CVC& gamestate) = 0;
-
- private:
-  std::vector<double> feature_vector_;
-  Character* actor_;
-  double score_;
-};
+#include "decision_engine.h"
 
 class TrivialAction : public Action {
  public:
   TrivialAction(Character* actor, double score, std::vector<double> features);
 
   // implementation of Action
-  bool IsValid(const CVC& gamestate);
-  void TakeEffect(CVC& gamestate);
+  bool IsValid(const CVC* gamestate);
+  void TakeEffect(CVC* gamestate);
 };
 
 // AskAction: ask target character for money, they accept with some chance
@@ -54,8 +21,8 @@ class AskAction : public Action {
             Character* target, double request_amount);
 
   // implementation of Action
-  bool IsValid(const CVC& gamestate);
-  void TakeEffect(CVC& gamestate);
+  bool IsValid(const CVC* gamestate);
+  void TakeEffect(CVC* gamestate);
 
  private:
   Character* target_;
@@ -69,8 +36,8 @@ class StealAction : public Action {
   StealAction(Character* actor, double score, std::vector<double> features);
 
   // implementation of Action
-  bool IsValid(const CVC& gamestate);
-  void TakeEffect(CVC& gamestate);
+  bool IsValid(const CVC* gamestate);
+  void TakeEffect(CVC* gamestate);
 
  private:
   Character* target_;
@@ -85,8 +52,8 @@ class GiveAction : public Action {
              Character* target, double gift_amount);
 
   // implementation of Action
-  bool IsValid(const CVC& gamestate);
-  void TakeEffect(CVC& gamestate);
+  bool IsValid(const CVC* gamestate);
+  void TakeEffect(CVC* gamestate);
 
  private:
   Character* target_;

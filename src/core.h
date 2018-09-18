@@ -5,6 +5,7 @@
 #include <list>
 #include <memory>
 #include <random>
+#include <stdio.h>
 
 #include "action.h"
 
@@ -13,7 +14,7 @@ class CVC;
 class Character;
 
 struct RelationshipModifier {
-  RelationshipModifier(Character *target, int start_date, int end_date,
+  RelationshipModifier(Character* target, int start_date, int end_date,
                        double opinion_modifier_);
 
   Character *target_;
@@ -24,69 +25,65 @@ struct RelationshipModifier {
 };
 
 class Character {
-  public:
-    Character(int id, double money_);
+ public:
+  Character(int id, double money_);
 
-    int GetId() const {
-        return this->id_;
-    }
+  int GetId() const { return this->id_; }
 
-    double GetMoney() const {
-        return this->money_;
-    }
+  double GetMoney() const { return this->money_; }
 
-    void SetMoney(double money) {
-        this->money_ = money;
-    }
+  void SetMoney(double money) { this->money_ = money; }
 
-    void AddRelationship(std::unique_ptr<RelationshipModifier> relationship);
-    void ExpireRelationships(int now);
-    double GetOpinionOf(Character* target) const;
+  void AddRelationship(std::unique_ptr<RelationshipModifier> relationship);
+  void ExpireRelationships(int now);
+  double GetOpinionOf(Character* target) const;
 
-  private:
-    int id_;
-    double money_;
-    std::list<std::unique_ptr<RelationshipModifier>> relationships_;
+ private:
+  int id_;
+  double money_;
+  std::list<std::unique_ptr<RelationshipModifier>> relationships_;
 
 };
 
 class DecisionEngine {
-  public:
-    //TODO: what's the right return type here? the idea is that this is a
-    //factory of scored actions in a vector
-    std::vector<std::unique_ptr<Action>> EnumerateActions(const CVC& cvc,
-                                                          Character* character);
+ public:
+  // TODO: what's the right return type here? the idea is that this is a
+  // factory of scored actions in a vector
+  std::vector<std::unique_ptr<Action>> EnumerateActions(const CVC& cvc,
+                                                        Character* character);
 };
 
 class CVC {
-  public:
-    CVC(
-            std::unique_ptr<DecisionEngine> decision_engine,
-            std::vector<std::unique_ptr<Character>> characters,
-            std::mt19937 random_generator);
+ public:
+  CVC(std::unique_ptr<DecisionEngine> decision_engine,
+      std::vector<std::unique_ptr<Character>> characters,
+      std::mt19937 random_generator, FILE* action_log_);
 
-    std::vector<Character*> GetCharacters() const;
+  std::vector<Character*> GetCharacters() const;
 
-    void GameLoop();
-    void PrintState() const;
+  void GameLoop();
+  void PrintState() const;
 
-    //gets the current clock tick
-    int Now() const;
+  // gets the current clock tick
+  int Now() const;
 
-    std::mt19937* GetRandomGenerator() { return &this->random_generator_; }
+  std::mt19937* GetRandomGenerator() { return &this->random_generator_; }
 
-  private:
-    void ExpireRelationships();
-    void EvaluateQueuedActions();
-    void ChooseActions();
+ private:
+  void ExpireRelationships();
+  void EvaluateQueuedActions();
+  void ChooseActions();
 
-    int ticks_;
+  void LogAction(const Action* action);
 
-    std::mt19937 random_generator_;
+  FILE* action_log_;
+  int ticks_;
 
-    std::unique_ptr<DecisionEngine> decision_engine_;
-    std::vector<std::unique_ptr<Character>> characters_;
-    std::vector<std::unique_ptr<Action>> queued_actions_;
+  std::mt19937 random_generator_;
+
+  std::unique_ptr<DecisionEngine> decision_engine_;
+  std::vector<std::unique_ptr<Character>> characters_;
+  std::vector<std::unique_ptr<Action>> queued_actions_;
 
 };
 

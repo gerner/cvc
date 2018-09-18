@@ -7,82 +7,90 @@ class CVC;
 class Character;
 
 class Action {
-  public:
-    Action(Character* actor, double score);
-    virtual ~Action();
-    //Get this action's actor (the character taking the action)
-    Character* GetActor();
-    void SetActor(Character* actor);
+ public:
+  Action(Character* actor, double score, std::vector<double> features);
+  virtual ~Action();
+  // Get this action's actor (the character taking the action)
+  Character* GetActor() const;
+  void SetActor(Character* actor);
 
-    //Get the score this action's been given
-    //it's assumed this is normalized against alternative actions
-    //I'm not thrilled with this detail which makes it make sense ONLY in the
-    //context of some other instances
-    double GetScore();
-    void SetScore(double score);
+  std::vector<double> GetFeatureVector() const;
+  void SetFeatureVector(std::vector<double> feature_vector);
 
-    //Determine if this particular action is valid in the given gamestate by
-    //the given character
-    virtual bool IsValid(const CVC& gamestate) = 0;
+  // Get the score this action's been given
+  // it's assumed this is normalized against alternative actions
+  // I'm not thrilled with this detail which makes it make sense ONLY in the
+  // context of some other instances
+  double GetScore() const;
+  void SetScore(double score);
 
-    //Have this action take effect by the given character
-    virtual void TakeEffect(CVC& gamestate) = 0;
+  // Determine if this particular action is valid in the given gamestate by
+  // the given character
+  virtual bool IsValid(const CVC& gamestate) = 0;
 
-  private:
-    Character* actor_;
-    double score_;
+  // Have this action take effect by the given character
+  virtual void TakeEffect(CVC& gamestate) = 0;
+
+ private:
+  std::vector<double> feature_vector_;
+  Character* actor_;
+  double score_;
 };
 
 class TrivialAction : public Action {
-  public:
-    TrivialAction(Character *actor, double score);
+ public:
+  TrivialAction(Character* actor, double score, std::vector<double> features);
 
-    //implementation of Action
-    bool IsValid(const CVC& gamestate);
-    void TakeEffect(CVC& gamestate);
-
+  // implementation of Action
+  bool IsValid(const CVC& gamestate);
+  void TakeEffect(CVC& gamestate);
 };
 
-//AskAction: ask target character for money, they accept with some chance increasing with opinion
+// AskAction: ask target character for money, they accept with some chance
+// increasing with opinion
 class AskAction : public Action {
-  public:
-    AskAction(Character *actor, double score, Character *target, double request_amount);
+ public:
+  AskAction(Character* actor, double score, std::vector<double> features,
+            Character* target, double request_amount);
 
-    //implementation of Action
-    bool IsValid(const CVC& gamestate);
-    void TakeEffect(CVC& gamestate);
+  // implementation of Action
+  bool IsValid(const CVC& gamestate);
+  void TakeEffect(CVC& gamestate);
 
-  private:
-    Character* target_;
-    double request_amount_;
+ private:
+  Character* target_;
+  double request_amount_;
 };
 
-//StealAction: (try to) steal money from target character, succeeds with chance increasing with opinion, detected with chance increasing with opinion
+// StealAction: (try to) steal money from target character, succeeds with chance
+// increasing with opinion, detected with chance increasing with opinion
 class StealAction : public Action {
-  public:
-    StealAction(Character *actor, double score);
+ public:
+  StealAction(Character* actor, double score, std::vector<double> features);
 
-    //implementation of Action
-    bool IsValid(const CVC& gamestate);
-    void TakeEffect(CVC& gamestate);
+  // implementation of Action
+  bool IsValid(const CVC& gamestate);
+  void TakeEffect(CVC& gamestate);
 
-  private:
-    Character* target_;
-    double steal_amount_;
+ private:
+  Character* target_;
+  double steal_amount_;
 };
 
-//GiveAction: give money to target character, increases opinion depending on other opinion modifiers
+// GiveAction: give money to target character, increases opinion depending on
+// other opinion modifiers
 class GiveAction : public Action {
-  public:
-    GiveAction(Character *actor, double score, Character *target, double gift_amount);
+ public:
+  GiveAction(Character* actor, double score, std::vector<double> features,
+             Character* target, double gift_amount);
 
-    //implementation of Action
-    bool IsValid(const CVC& gamestate);
-    void TakeEffect(CVC& gamestate);
+  // implementation of Action
+  bool IsValid(const CVC& gamestate);
+  void TakeEffect(CVC& gamestate);
 
-  private:
-    Character* target_;
-    double gift_amount_;
+ private:
+  Character* target_;
+  double gift_amount_;
 };
 
 #endif

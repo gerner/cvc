@@ -53,11 +53,11 @@ void AskAction::TakeEffect(CVC& gamestate) {
     double opinion = this->target_->GetOpinionOf(this->GetActor());
     std::uniform_real_distribution<> dist(0.0, 1.0);
     bool success = false;
-    if(opinion > 0.0 && dist(*gamestate.GetRandomGenerator()) < 1.0/(1.0+exp(-10.0*(opinion-0.5)))) {
+    if (opinion > 0.0 && dist(*gamestate.GetRandomGenerator()) < 1.0/(1.0+exp(-10.0*(opinion-0.5)))) {
         success = true;
     }
 
-    if(success) {
+    if (success) {
         //on success:
         //transfer request_amount_ from target to actor
         this->GetActor()->SetMoney(this->GetActor()->GetMoney() - this->request_amount_);

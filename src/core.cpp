@@ -16,7 +16,7 @@ Character::Character(int id, double money) : id_(id), money_(money) {}
 void Character::ExpireRelationships(int now) {
     for (auto it = this->relationships_.begin(); it != this->relationships_.end();){
         RelationshipModifier* relationship = it->get();
-        if(now >= relationship->end_date_) {
+        if (now >= relationship->end_date_) {
             printf("expiring %d -> %d (%f)\n", this->GetId(), relationship->target_->GetId(), relationship->opinion_modifier_);
             it = this->relationships_.erase(it);
         } else {
@@ -34,8 +34,8 @@ double Character::GetOpinionOf(Character* target) const {
     //TODO: non-relationship-modified opinion traits
 
     //TODO: rethink how we're organizing these relationships to make this faster
-    for(const auto& r : this->relationships_) {
-        if(r->target_ == target) {
+    for (const auto& r : this->relationships_) {
+        if (r->target_ == target) {
             opinion += r->opinion_modifier_;
         }
     }
@@ -49,21 +49,21 @@ std::vector<std::unique_ptr<Action>> DecisionEngine::EnumerateActions(const CVC&
     //GiveAction
     Character* best_target = NULL;
     double worst_opinion = std::numeric_limits<double>::max();
-    if(character->GetMoney() > 10.0) {
-        for(Character* target : cvc.GetCharacters()) {
+    if (character->GetMoney() > 10.0) {
+        for (Character* target : cvc.GetCharacters()) {
             //skip self
-            if(character == target) {
+            if (character == target) {
                 continue;
             }
 
             //pick the character that likes us the least
             double opinion = target->GetOpinionOf(character);
-            if(opinion < worst_opinion) {
+            if (opinion < worst_opinion) {
                 worst_opinion = opinion;
                 best_target = target;
             }
         }
-        if(best_target) {
+        if (best_target) {
             ret.push_back(std::make_unique<GiveAction>(character, 0.4, best_target, character->GetMoney() * 0.1));
         }
     }
@@ -71,24 +71,24 @@ std::vector<std::unique_ptr<Action>> DecisionEngine::EnumerateActions(const CVC&
     //AskAction
     best_target = NULL;
     double best_opinion = 0.0;
-    for(Character* target : cvc.GetCharacters()) {
+    for (Character* target : cvc.GetCharacters()) {
         //skip self
-        if(character == target) {
+        if (character == target) {
             continue;
         }
 
-        if(target->GetMoney() <= 10.0) {
+        if (target->GetMoney() <= 10.0) {
             continue;
         }
 
         //pick the character that likes us the least
         double opinion = target->GetOpinionOf(character);
-        if(opinion > best_opinion) {
+        if (opinion > best_opinion) {
             best_opinion = opinion;
             best_target = target;
         }
     }
-    if(best_target) {
+    if (best_target) {
         ret.push_back(std::make_unique<AskAction>(character, 0.4, best_target, 10.0));
     }
 
@@ -110,7 +110,7 @@ CVC::CVC(
 
 std::vector<Character*> CVC::GetCharacters() const {
     std::vector<Character*> ret;//(this->characters_.size());
-    for(auto& character : this->characters_) {
+    for (auto& character : this->characters_) {
         ret.push_back(character.get());
     }
     return ret;
@@ -136,9 +136,9 @@ void CVC::PrintState() const {
     //TODO: probably don't want to always spit to stdout
 
     printf("tick %d:\n", this->ticks_);
-    for(const auto& character: this->characters_) {
+    for (const auto& character: this->characters_) {
         printf("%d	%f	", character->GetId(), character->GetMoney());
-        for(const auto& target: this->characters_) {
+        for (const auto& target: this->characters_) {
             printf("%f	", character->GetOpinionOf(target.get()));
         }
         printf("\n");
@@ -157,9 +157,9 @@ void CVC::ExpireRelationships() {
 
 void CVC::EvaluateQueuedActions() {
     //go through list of all the queued actions
-    for(auto& action: this->queued_actions_) {
+    for (auto& action: this->queued_actions_) {
         //ensure the action is still valid in the current state
-        if(!action->IsValid(*this)) {
+        if (!action->IsValid(*this)) {
             //if it's not valid any more, just skip it
             continue;
         }
@@ -176,12 +176,12 @@ void CVC::EvaluateQueuedActions() {
 void CVC::ChooseActions() {
     std::uniform_real_distribution<> dist(0.0, 1.0);
     //go through list of all characters
-    for(auto& character: this->characters_) {
+    for (auto& character: this->characters_) {
         //run the decision making loop for each:
         double stop_prob = 0.7;
-        while(true) {
+        while (true) {
             //check to see if we should stop choosing actions
-            if(dist(random_generator_) < stop_prob) {
+            if (dist(random_generator_) < stop_prob) {
                 break;
             }
 
@@ -189,7 +189,7 @@ void CVC::ChooseActions() {
             std::vector<std::unique_ptr<Action>> actions = this->decision_engine_->EnumerateActions(*this, character.get());
 
             //we assume if there's no actions there will not be any this tick
-            if(actions.empty()) {
+            if (actions.empty()) {
                 break;
             }
 
@@ -197,9 +197,9 @@ void CVC::ChooseActions() {
             double choice = dist(random_generator_);
             double sum_score = 0;
             //CVC is responsible for maintaining the lifecycle of the action
-            for(auto& action: actions) {
+            for (auto& action: actions) {
                 sum_score += action->GetScore();
-                if(choice < sum_score) {
+                if (choice < sum_score) {
                     //keep this one action
                     this->queued_actions_.push_back(std::move(action));
                     //rest of the actions will go out of scope and 

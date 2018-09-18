@@ -9,7 +9,8 @@ project(sample_project CXX C)
 
 # Core library. *.cpp should be added here.
 add_library(core
-  ./src/core.cpp)
+  ./src/core.cpp
+  ./src/action.cpp)
 
 # Main entry point.
 add_executable(main
@@ -21,6 +22,7 @@ target_link_libraries(main
 
 # Add flags.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++14")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
 
 #if(TESTS)
 #

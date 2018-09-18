@@ -2,54 +2,51 @@
 #define CORE_H_
 
 #include <vector>
+#include <list>
 #include <memory>
 #include <random>
 
+#include "action.h"
+
+class Action;
+class CVC;
+class Character;
+
+struct RelationshipModifier {
+  RelationshipModifier(Character *target, int start_date, int end_date,
+                       double opinion_modifier_);
+
+  Character *target_;
+  int start_date_;
+  int end_date_;
+  double opinion_modifier_;
+  // TODO: some explanatory string about why
+};
+
 class Character {
   public:
-    double GetMoney();
-    void SetMoney(double money);
+    Character(int id, double money_);
+
+    int GetId() const {
+        return this->id_;
+    }
+
+    double GetMoney() const {
+        return this->money_;
+    }
+
+    void SetMoney(double money) {
+        this->money_ = money;
+    }
+
+    void AddRelationship(std::unique_ptr<RelationshipModifier> relationship);
+    void ExpireRelationships(int now);
+    double GetOpinionOf(Character* target) const;
 
   private:
+    int id_;
     double money_;
-};
-
-class CVC;
-
-class Action {
-  public:
-    Action(Character* actor, double score);
-    virtual ~Action();
-    //Get this action's actor (the character taking the action)
-    Character* GetActor();
-    void SetActor(Character* actor);
-
-    //Get the score this action's been given
-    //it's assumed this is normalized against alternative actions
-    //I'm not thrilled with this detail which makes it make sense ONLY in the
-    //context of some other instances
-    double GetScore();
-    void SetScore(double score);
-
-    //Determine if this particular action is valid in the given gamestate by
-    //the given character
-    virtual bool IsValid(const CVC& gamestate) = 0;
-
-    //Have this action take effect by the given character
-    virtual void TakeEffect(CVC& gamestate) = 0;
-
-  private:
-    Character* actor_;
-    double score_;
-};
-
-class TrivialAction : public Action {
-  public:
-    TrivialAction(Character *actor, double score);
-
-    //implementation of Action
-    bool IsValid(const CVC& gamestate);
-    void TakeEffect(CVC& gamestate);
+    std::list<std::unique_ptr<RelationshipModifier>> relationships_;
 
 };
 
@@ -57,7 +54,8 @@ class DecisionEngine {
   public:
     //TODO: what's the right return type here? the idea is that this is a
     //factory of scored actions in a vector
-    std::vector<std::unique_ptr<Action>> EnumerateActions(const CVC& cvc, Character* character);
+    std::vector<std::unique_ptr<Action>> EnumerateActions(const CVC& cvc,
+                                                          Character* character);
 };
 
 class CVC {
@@ -67,11 +65,22 @@ class CVC {
             std::vector<std::unique_ptr<Character>> characters,
             std::mt19937 random_generator);
 
+    std::vector<Character*> GetCharacters() const;
+
     void GameLoop();
+    void PrintState() const;
+
+    //gets the current clock tick
+    int Now() const;
+
+    std::mt19937* GetRandomGenerator() { return &this->random_generator_; }
 
   private:
+    void ExpireRelationships();
     void EvaluateQueuedActions();
     void ChooseActions();
+
+    int ticks_;
 
     std::mt19937 random_generator_;
 

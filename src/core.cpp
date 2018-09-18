@@ -5,36 +5,20 @@
 #include "core.h"
 #include "action.h"
 
-RelationshipModifier::RelationshipModifier(Character* target, int start_date, int end_date, double opinion_modifier_) {
-    this->target_ = target;
-    this->start_date_ = start_date;
-    this->end_date_ = end_date;
-    this->opinion_modifier_ = opinion_modifier_;
-}
+RelationshipModifier::RelationshipModifier(Character* target, int start_date,
+                                           int end_date,
+                                           double opinion_modifier)
+    : target_(target), start_date_(start_date), end_date_(end_date),
+      opinion_modifier_(opinion_modifier) {}
 
-Character::Character(int id, double money) {
-    this->id_ = id;
-    this->money_ = money;
-}
-
-int Character::GetId() const {
-    return this->id_;
-}
-
-double Character::GetMoney() const {
-    return this->money_;
-}
-
-void Character::SetMoney(double money) {
-    this->money_ = money;
-}
+Character::Character(int id, double money) : id_(id), money_(money) {}
 
 void Character::ExpireRelationships(int now) {
     for (auto it = this->relationships_.begin(); it != this->relationships_.end();){
         RelationshipModifier* relationship = it->get();
         if(now >= relationship->end_date_) {
             printf("expiring %d -> %d (%f)\n", this->GetId(), relationship->target_->GetId(), relationship->opinion_modifier_);
-            this->relationships_.erase(it++);
+            it = this->relationships_.erase(it);
         } else {
             it++;
         }
@@ -45,7 +29,7 @@ void Character::AddRelationship(std::unique_ptr<RelationshipModifier> relationsh
     this->relationships_.push_back(std::move(relationship));
 }
 
-double Character::GetOpinionOf(Character *target) const {
+double Character::GetOpinionOf(Character* target) const {
     double opinion = 0.0;
     //TODO: non-relationship-modified opinion traits
 
@@ -124,8 +108,8 @@ CVC::CVC(
     this->characters_ = std::move(characters);
 }
 
-std::vector<Character *> CVC::GetCharacters() const {
-    std::vector<Character *> ret;//(this->characters_.size());
+std::vector<Character*> CVC::GetCharacters() const {
+    std::vector<Character*> ret;//(this->characters_.size());
     for(auto& character : this->characters_) {
         ret.push_back(character.get());
     }
@@ -165,12 +149,8 @@ int CVC::Now() const {
     return this->ticks_;
 }
 
-std::mt19937& CVC::GetRandomGenerator() {
-    return this->random_generator_;
-}
-
 void CVC::ExpireRelationships() {
-    for(const auto& character: this->characters_) {
+    for (const auto& character: this->characters_) {
         character->ExpireRelationships(this->Now());
     }
 }

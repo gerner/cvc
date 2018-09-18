@@ -157,22 +157,20 @@ void DecisionEngine::EvaluateQueuedActions() {
 
 
 void DecisionEngine::LogAction(const Action* action) {
-  // TODO: log the action to some action log
   //  tick
   //  user id
+  //  user score
   //  action id
+  //  action score
   //  feature vector
-  // fprintf(this->action_log_, "%d\t%d\t%s\t%d\t%s\n", this->ticks_,
-  // action->GetActor()->GetId(), _action->GetClassId(), _action->GetScore(),
-  // join(_action->GetFeatureVector(), "\t"))
   if (this->action_log_) {
     std::vector<double> features = action->GetFeatureVector();
     std::ostringstream s;
     std::copy(features.begin(), features.end(),
               std::ostream_iterator<double>(s, "\t"));
 
-    fprintf(action_log_, "%d\t%d\t%s\t%f\t%s\n", cvc_->Now(),
-            action->GetActor()->GetId(), typeid(*action).name(),
-            action->GetScore(), s.str().c_str());
+    fprintf(action_log_, "%d\t%d\t%f\t%s\t%f\t%s\n", cvc_->Now(),
+            action->GetActor()->GetId(), action->GetActor()->GetMoney(),
+            typeid(*action).name(), action->GetScore(), s.str().c_str());
   }
 }

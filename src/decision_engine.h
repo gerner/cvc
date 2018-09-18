@@ -46,9 +46,9 @@ class DecisionEngine {
 
   void LogAction(const Action* action);
 
+  CVC* cvc_;
   FILE* action_log_;
   std::vector<std::unique_ptr<Action>> queued_actions_;
-  CVC* cvc_;
 };
 
 #endif

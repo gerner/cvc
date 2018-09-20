@@ -5,21 +5,37 @@
 
 class Action {
  public:
-  Action(Character* actor, double score, std::vector<double> features);
+  Action(const char* action_id, Character* actor, double score, std::vector<double> features);
   virtual ~Action();
   // Get this action's actor (the character taking the action)
-  Character* GetActor() const;
-  void SetActor(Character* actor);
+  Character* GetActor() const {
+    return actor_;
+  }
+  void SetActor(Character* actor) {
+    actor_ = actor;
+  }
 
-  std::vector<double> GetFeatureVector() const;
-  void SetFeatureVector(std::vector<double> feature_vector);
+  std::vector<double> GetFeatureVector() const {
+    return feature_vector_;
+  }
+  void SetFeatureVector(std::vector<double> feature_vector) {
+    feature_vector_ = feature_vector;
+  }
 
   // Get the score this action's been given
   // it's assumed this is normalized against alternative actions
   // I'm not thrilled with this detail which makes it make sense ONLY in the
   // context of some other instances
-  double GetScore() const;
-  void SetScore(double score);
+  double GetScore() const {
+    return score_;
+  }
+  void SetScore(double score) {
+    score_ = score;
+  }
+
+  const char* GetActionId() const {
+    return action_id_;
+  }
 
   // Determine if this particular action is valid in the given gamestate by
   // the given character
@@ -29,9 +45,11 @@ class Action {
   virtual void TakeEffect(CVC* gamestate) = 0;
 
  private:
-  std::vector<double> feature_vector_;
+  const char* action_id_;
   Character* actor_;
   double score_;
+  std::vector<double> feature_vector_;
+
 };
 
 class DecisionEngine {

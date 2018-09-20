@@ -7,8 +7,18 @@
 #include <iterator>
 
 #include "core.h"
+//TODO: break this circular dependency
 #include "decision_engine.h"
 #include "action.h"
+
+Action::Action(const char* action_id, Character* actor, double score,
+               std::vector<double> features)
+    : action_id_(action_id),
+      actor_(actor),
+      score_(score),
+      feature_vector_(features) {}
+
+Action::~Action() {}
 
 DecisionEngine::DecisionEngine(CVC* cvc, FILE* action_log)
     : cvc_(cvc), action_log_(action_log) {}
@@ -92,41 +102,35 @@ void DecisionEngine::ChooseActions() {
   std::uniform_real_distribution<> dist(0.0, 1.0);
   // go through list of all characters
   for (auto character : cvc_->GetCharacters()) {
-    // run the decision making loop for each:
-    double stop_prob = 0.7;
-    while (true) {
-      // check to see if we should stop choosing actions
-      if (dist(*cvc_->GetRandomGenerator()) < stop_prob) {
-        break;
-      }
+    // enumerate and score actions
+    std::vector<std::unique_ptr<Action>> actions =
+        EnumerateActions(character);
 
-      // enumerate and score actions
-      std::vector<std::unique_ptr<Action>> actions =
-          EnumerateActions(character);
-
-      // we assume if there's no actions there will not be any this tick
-      if (actions.empty()) {
-        break;
-      }
-
-      // choose one
-      double choice = dist(*cvc_->GetRandomGenerator());
-      double sum_score = 0;
-      // CVC is responsible for maintaining the lifecycle of the action
-      for (auto& action : actions) {
-        sum_score += action->GetScore();
-        if (choice < sum_score) {
-          assert(action->IsValid(cvc_));
-          // keep this one action
-          this->queued_actions_.push_back(std::move(action));
-          // rest of the actions will go out of scope and
-          break;
-        }
-      }
-
-      // update stop_prob
-      stop_prob = 1.0 - (1.0 - stop_prob) * 0.2;
+    // we assume if there's no actions there will not be any this tick
+    if (actions.empty()) {
+      assert(0);
+      break;
     }
+
+    // choose one
+    double choice = dist(*cvc_->GetRandomGenerator());
+    double sum_score = 0;
+    bool chose = false;
+    // CVC is responsible for maintaining the lifecycle of the action
+    for (auto& action : actions) {
+      sum_score += action->GetScore();
+      if (choice < sum_score) {
+        assert(action->IsValid(cvc_));
+        // keep this one action
+        this->queued_actions_.push_back(std::move(action));
+        // rest of the actions will go out of scope and
+        chose = true;
+        break;
+      }
+    }
+
+    assert(sum_score <= 1.0);
+    assert(chose);
   }
 }
 
@@ -171,6 +175,6 @@ void DecisionEngine::LogAction(const Action* action) {
 
     fprintf(action_log_, "%d\t%d\t%f\t%s\t%f\t%s\n", cvc_->Now(),
             action->GetActor()->GetId(), action->GetActor()->GetMoney(),
-            typeid(*action).name(), action->GetScore(), s.str().c_str());
+            action->GetActionId(), action->GetScore(), s.str().c_str());
   }
 }

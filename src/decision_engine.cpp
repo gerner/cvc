@@ -11,15 +11,6 @@
 #include "decision_engine.h"
 #include "action.h"
 
-Action::Action(const char* action_id, Character* actor, double score,
-               std::vector<double> features)
-    : action_id_(action_id),
-      actor_(actor),
-      score_(score),
-      feature_vector_(features) {}
-
-Action::~Action() {}
-
 DecisionEngine::DecisionEngine(CVC* cvc, FILE* action_log)
     : cvc_(cvc), action_log_(action_log) {}
 
@@ -95,6 +86,16 @@ std::vector<std::unique_ptr<Action>> DecisionEngine::EnumerateActions(
   ret.push_back(
       std::make_unique<TrivialAction>(character, 0.2, std::vector<double>()));
 
+  //TODO: normalize scores
+  double sum_score = 0.0;
+  for (auto& action : ret) {
+    sum_score += action->GetScore();
+  }
+
+  for (auto& action : ret) {
+    action->SetScore(action->GetScore() / sum_score);
+  }
+
   return ret;
 }
 
@@ -129,6 +130,8 @@ void DecisionEngine::ChooseActions() {
       }
     }
 
+    //make sure that the action choices were a well formed distribution:
+    //  sum of probs should not be more than 1 and we should make a choice
     assert(sum_score <= 1.0);
     assert(chose);
   }

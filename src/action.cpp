@@ -1,8 +1,16 @@
 #include <cmath>
 
 #include "action.h"
-#include "decision_engine.h"
 #include "core.h"
+
+Action::Action(const char* action_id, Character* actor, double score,
+               std::vector<double> features)
+    : action_id_(action_id),
+      actor_(actor),
+      score_(score),
+      feature_vector_(features) {}
+
+Action::~Action() {}
 
 TrivialAction::TrivialAction(Character* actor, double score,
                              std::vector<double> features)

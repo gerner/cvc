@@ -52,7 +52,6 @@ double Character::GetOpinionOf(Character* target) const {
   return opinion;
 }
 
-
 CVC::CVC(std::vector<std::unique_ptr<Character>> characters,
          std::mt19937 random_generator)
     : ticks_(0), random_generator_(random_generator) {
@@ -67,7 +66,6 @@ std::vector<Character*> CVC::GetCharacters() const {
   }
   return ret;
 }
-
 
 void CVC::PrintState() const {
   // TODO: probably don't want to always spit to stdout

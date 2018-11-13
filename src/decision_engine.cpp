@@ -7,16 +7,18 @@
 #include <iterator>
 
 #include "core.h"
-//TODO: break this circular dependency
 #include "decision_engine.h"
 #include "action.h"
 
-DecisionEngine::DecisionEngine(CVC* cvc, FILE* action_log)
-    : cvc_(cvc), action_log_(action_log) {}
+ActionFactory::~ActionFactory() {}
+
+DecisionEngine::DecisionEngine(std::vector<ActionFactory*> action_factories,
+                               CVC* cvc, FILE* action_log)
+    : action_factories_(action_factories), cvc_(cvc), action_log_(action_log) {}
 
 void DecisionEngine::GameLoop() {
   // TODO: don't just loop for some random hardcoded number of iterations
-  for (; cvc_->Now() < 1000; cvc_->Tick()) {
+  for (; cvc_->Now() < 10000; cvc_->Tick()) {
     // 0. expire relationships
     cvc_->ExpireRelationships();
     // 1. evaluate queued actions
@@ -24,77 +26,30 @@ void DecisionEngine::GameLoop() {
     // 2. choose actions for characters
     ChooseActions();
 
-    // TODO: expose state somehow to keep track of how stuff is going
-    //  maybe also use the record of the state as training
-    cvc_->PrintState();
   }
+  // TODO: expose state somehow to keep track of how stuff is going
+  //  maybe also use the record of the state as training
+  cvc_->PrintState();
 }
 
 std::vector<std::unique_ptr<Action>> DecisionEngine::EnumerateActions(
     Character* character) {
   std::vector<std::unique_ptr<Action>> ret;
 
-  // GiveAction
-  Character* best_target = NULL;
-  double worst_opinion = std::numeric_limits<double>::max();
-  if (character->GetMoney() > 10.0) {
-    for (Character* target : cvc_->GetCharacters()) {
-      // skip self
-      if (character == target) {
-        continue;
-      }
-
-      // pick the character that likes us the least
-      double opinion = target->GetOpinionOf(character);
-      if (opinion < worst_opinion) {
-        worst_opinion = opinion;
-        best_target = target;
-      }
-    }
-    if (best_target) {
-      ret.push_back(std::make_unique<GiveAction>(
-          character, 0.4, std::vector<double>({1.0, 0.2}), best_target,
-          character->GetMoney() * 0.1));
-    }
-  }
-
-  // AskAction
-  best_target = NULL;
-  double best_opinion = 0.0;
-  for (Character* target : cvc_->GetCharacters()) {
-    // skip self
-    if (character == target) {
-      continue;
-    }
-
-    if (target->GetMoney() <= 10.0) {
-      continue;
-    }
-
-    // pick the character that likes us the least
-    double opinion = target->GetOpinionOf(character);
-    if (opinion > best_opinion) {
-      best_opinion = opinion;
-      best_target = target;
-    }
-  }
-  if (best_target) {
-    ret.push_back(std::make_unique<AskAction>(
-        character, 0.4, std::vector<double>({0.7, 0.5}), best_target, 10.0));
-  }
-
-  ret.push_back(
-      std::make_unique<TrivialAction>(character, 0.2, std::vector<double>()));
-
-  //TODO: normalize scores
   double sum_score = 0.0;
-  for (auto& action : ret) {
-    sum_score += action->GetScore();
+  for(auto action_factory : action_factories_) {
+    sum_score += action_factory->EnumerateActions(cvc_, character, &ret);
   }
 
+  //normalize scores
+  double recomputed_sum_score = 0.0;
   for (auto& action : ret) {
-    action->SetScore(action->GetScore() / sum_score);
+    double score = action->GetScore();
+    recomputed_sum_score += score;
+    action->SetScore(score / sum_score);
   }
+
+  assert(recomputed_sum_score == sum_score);
 
   return ret;
 }
@@ -107,17 +62,17 @@ void DecisionEngine::ChooseActions() {
     std::vector<std::unique_ptr<Action>> actions =
         EnumerateActions(character);
 
-    // we assume if there's no actions there will not be any this tick
-    if (actions.empty()) {
-      assert(0);
-      break;
-    }
+    //there must be at least one action to choose from (even if it's trivial)
+    assert(!actions.empty());
 
     // choose one
     double choice = dist(*cvc_->GetRandomGenerator());
     double sum_score = 0;
     bool chose = false;
-    // CVC is responsible for maintaining the lifecycle of the action
+
+    // DecisionEngine is responsible for maintaining the lifecycle of the action
+    // so we'll move it to our state and ditch the rest when they go out of
+    // scope
     for (auto& action : actions) {
       sum_score += action->GetScore();
       if (choice < sum_score) {

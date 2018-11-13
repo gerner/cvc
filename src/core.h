@@ -6,6 +6,15 @@
 #include <memory>
 #include <random>
 #include <stdio.h>
+#include <stdarg.h>
+
+enum LogLevel {
+  TRACE,
+  DEBUG,
+  INFO,
+  WARN,
+  ERROR
+};
 
 class CVC;
 class Character;
@@ -33,7 +42,7 @@ class Character {
 
   void AddRelationship(std::unique_ptr<RelationshipModifier> relationship);
   void ExpireRelationships(int now);
-  double GetOpinionOf(Character* target) const;
+  double GetOpinionOf(const Character* target) const;
 
  private:
   int id_;
@@ -42,6 +51,7 @@ class Character {
 
 };
 
+// Holds game state
 class CVC {
  public:
   CVC(std::vector<std::unique_ptr<Character>> characters,
@@ -64,7 +74,22 @@ class CVC {
 
   std::mt19937* GetRandomGenerator() { return &this->random_generator_; }
 
+  void Log(const LogLevel level, const char* format, ...) {
+    if(level >= LOG_LEVEL) {
+      if(LOG_SINK) {
+        va_list args;
+        va_start (args, format);
+        vfprintf (LOG_SINK, format, args);
+        va_end (args);
+      }
+    }
+  }
+
+
  private:
+  const LogLevel LOG_LEVEL = WARN;
+  FILE *LOG_SINK = NULL;
+
   int ticks_;
   std::mt19937 random_generator_;
   std::vector<std::unique_ptr<Character>> characters_;

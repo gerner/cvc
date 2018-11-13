@@ -19,7 +19,7 @@ TrivialAction::TrivialAction(Character* actor, double score,
 bool TrivialAction::IsValid(const CVC* gamestate) { return true; }
 
 void TrivialAction::TakeEffect(CVC* gamestate) {
-  printf("trivial by %d\n", GetActor()->GetId());
+  gamestate->Log(DEBUG, "trivial by %d\n", GetActor()->GetId());
 }
 
 AskAction::AskAction(Character* actor, double score,
@@ -61,7 +61,7 @@ void AskAction::TakeEffect(CVC* gamestate) {
         this->GetActor(), gamestate->Now(), gamestate->Now() + 10,
         -1.0 * this->request_amount_));
 
-    printf("request by %d to %d of %f\n", this->GetActor()->GetId(),
+    gamestate->Log(DEBUG, "request by %d to %d of %f\n", this->GetActor()->GetId(),
            this->target_->GetId(), this->request_amount_);
   } else {
     // on failure:
@@ -69,7 +69,7 @@ void AskAction::TakeEffect(CVC* gamestate) {
     this->GetActor()->AddRelationship(std::make_unique<RelationshipModifier>(
         this->target_, gamestate->Now(), gamestate->Now() + 10,
         this->request_amount_));
-    printf("request_failed by %d to %d of %f\n", this->GetActor()->GetId(),
+    gamestate->Log(DEBUG, "request_failed by %d to %d of %f\n", this->GetActor()->GetId(),
            this->target_->GetId(), this->request_amount_);
   }
 }
@@ -112,7 +112,7 @@ void GiveAction::TakeEffect(CVC* gamestate) {
   this->target_->AddRelationship(std::make_unique<RelationshipModifier>(
       this->GetActor(), gamestate->Now(), gamestate->Now() + 10, opinion_buff));
 
-  printf("gift by %d to %d of %f (increase opinion by %f)\n",
+  gamestate->Log(DEBUG, "gift by %d to %d of %f (increase opinion by %f)\n",
          this->GetActor()->GetId(), this->target_->GetId(), this->gift_amount_,
          opinion_buff);
 }

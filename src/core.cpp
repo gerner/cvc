@@ -24,8 +24,8 @@ void Character::ExpireRelationships(int now) {
        it != this->relationships_.end();) {
     RelationshipModifier* relationship = it->get();
     if (now >= relationship->end_date_) {
-      printf("expiring %d -> %d (%f)\n", this->GetId(),
-             relationship->target_->GetId(), relationship->opinion_modifier_);
+      //printf("expiring %d -> %d (%f)\n", this->GetId(),
+      //       relationship->target_->GetId(), relationship->opinion_modifier_);
       it = this->relationships_.erase(it);
     } else {
       it++;
@@ -38,7 +38,7 @@ void Character::AddRelationship(
   this->relationships_.push_back(std::move(relationship));
 }
 
-double Character::GetOpinionOf(Character* target) const {
+double Character::GetOpinionOf(const Character* target) const {
   double opinion = 0.0;
   // TODO: non-relationship-modified opinion traits
 

@@ -11,7 +11,8 @@ project(sample_project CXX C)
 add_library(core
   ./src/core.cpp
   ./src/decision_engine.cpp
-  ./src/action.cpp)
+  ./src/action.cpp
+  ./src/action_factories.cpp)
 
 # Main entry point.
 add_executable(main

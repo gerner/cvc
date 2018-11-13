@@ -5,6 +5,7 @@
 
 #include "core.h"
 #include "decision_engine.h"
+#include "action_factories.h"
 
 int main(int argc, char** argv) {
   printf("creating CVC\n");
@@ -18,7 +19,12 @@ int main(int argc, char** argv) {
 
   FILE* action_log = fopen("/tmp/action_log", "a");
   CVC cvc(std::move(c), random_generator);
-  DecisionEngine d(&cvc, action_log);
+
+  GiveActionFactory gaf;
+  AskActionFactory aaf;
+  TrivialActionFactory taf;
+
+  DecisionEngine d({&gaf, &aaf, &taf}, &cvc, action_log);
 
   printf("running the game loop\n");
   d.GameLoop();

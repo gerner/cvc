@@ -1,6 +1,8 @@
 #ifndef ACTION_H_
 #define ACTION_H_
 
+#include <vector>
+
 #include "core.h"
 
 class Action {

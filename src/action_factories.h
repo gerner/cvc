@@ -6,20 +6,36 @@
 
 class GiveActionFactory : public ActionFactory {
  public:
-  double EnumerateActions(const CVC* cvc, Character* character,
+  double EnumerateActions(CVC* cvc, Character* character,
                           std::vector<std::unique_ptr<Action>>* actions);
 };
 
 class AskActionFactory : public ActionFactory {
  public:
-  double EnumerateActions(const CVC* cvc, Character* character,
+  double EnumerateActions(CVC* cvc, Character* character,
+                          std::vector<std::unique_ptr<Action>>* actions);
+};
+
+class WorkActionFactory : public ActionFactory {
+ public:
+  double EnumerateActions(CVC* cvc, Character* character,
                           std::vector<std::unique_ptr<Action>>* actions);
 };
 
 class TrivialActionFactory : public ActionFactory {
  public:
-  double EnumerateActions(const CVC* cvc, Character* character,
+  double EnumerateActions(CVC* cvc, Character* character,
                           std::vector<std::unique_ptr<Action>>* actions);
+};
+
+class CompositeActionFactory : public ActionFactory {
+ public:
+  CompositeActionFactory(std::vector<ActionFactory*> factories);
+
+  double EnumerateActions(CVC* cvc, Character* character,
+                          std::vector<std::unique_ptr<Action>>* actions);
+ private:
+  std::vector<ActionFactory*> factories_;
 };
 
 #endif

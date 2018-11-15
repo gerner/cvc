@@ -5,7 +5,7 @@
 #include "action_factories.h"
 
 double GiveActionFactory::EnumerateActions(
-    const CVC* cvc, Character* character,
+    CVC* cvc, Character* character,
     std::vector<std::unique_ptr<Action>>* actions) {
   double score = 0.0;
 
@@ -15,6 +15,11 @@ double GiveActionFactory::EnumerateActions(
     for (Character* target : cvc->GetCharacters()) {
       // skip self
       if (character == target) {
+        continue;
+      }
+
+      // skip if target has above average money
+      if (target->GetMoney() > cvc->GetMoneyStats().mean_) {
         continue;
       }
 
@@ -36,7 +41,7 @@ double GiveActionFactory::EnumerateActions(
 }
 
 double AskActionFactory::EnumerateActions(
-    const CVC* cvc, Character* character,
+    CVC* cvc, Character* character,
     std::vector<std::unique_ptr<Action>>* actions) {
   double score = 0.0;
 
@@ -49,6 +54,11 @@ double AskActionFactory::EnumerateActions(
     }
 
     if (target->GetMoney() <= 10.0) {
+      continue;
+    }
+
+    // skip if target has below average money
+    if (target->GetMoney() > cvc->GetMoneyStats().mean_) {
       continue;
     }
 
@@ -67,10 +77,37 @@ double AskActionFactory::EnumerateActions(
   return score;
 }
 
+double WorkActionFactory::EnumerateActions(
+    CVC* cvc, Character* character,
+    std::vector<std::unique_ptr<Action>>* actions) {
+  for (Character* target : cvc->GetCharacters()) {
+    if(target->GetOpinionOf(character) > 0.0) {
+      actions->push_back(
+          std::make_unique<WorkAction>(character, 0.3, std::vector<double>()));
+      return 0.3;
+    }
+  }
+  return 0.0;
+}
+
 double TrivialActionFactory::EnumerateActions(
-    const CVC* cvc, Character* character,
+    CVC* cvc, Character* character,
     std::vector<std::unique_ptr<Action>>* actions) {
   actions->push_back(
       std::make_unique<TrivialAction>(character, 0.2, std::vector<double>()));
   return 0.2;
+}
+
+CompositeActionFactory::CompositeActionFactory(
+    std::vector<ActionFactory*> factories)
+    : factories_(factories) {}
+
+double CompositeActionFactory::EnumerateActions(
+    CVC* cvc, Character* character,
+    std::vector<std::unique_ptr<Action>>* actions) {
+  double score = 0.0;
+  for(ActionFactory* factory : factories_) {
+    score += factory->EnumerateActions(cvc, character, actions);
+  }
+  return score;
 }

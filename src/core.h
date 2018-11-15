@@ -1,10 +1,13 @@
 #ifndef CORE_H_
 #define CORE_H_
 
+#include <cmath>
 #include <vector>
+#include <unordered_map>
 #include <list>
 #include <memory>
 #include <random>
+#include <cstdio>
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -16,7 +19,43 @@ enum LogLevel {
   ERROR
 };
 
-class CVC;
+class Logger {
+ public:
+  void Log(const LogLevel level, const char* format, ...) {
+    if(level >= log_level_) {
+      if(log_sink_) {
+        va_list args;
+        va_start (args, format);
+        vfprintf (log_sink_, format, args);
+        va_end (args);
+      }
+    }
+  }
+ private:
+  const LogLevel log_level_ = INFO;
+  FILE *log_sink_ = stderr;
+};
+
+struct Stats {
+  double mean_;
+  double stdev_;
+  int n_ = 0;
+
+  void ComputeStats(double sum, double ss, int n) {
+    n_ = n;
+    mean_ = sum / (double)n_;
+    stdev_ = sqrt(ss / (double)n_ - (mean_ * mean_));
+  }
+};
+
+enum CharacterTraitId {
+  kBackground,
+  kLanguage
+};
+
+typedef int CharacterTrait;
+
+typedef int CharacterId;
 class Character;
 
 struct RelationshipModifier {
@@ -32,9 +71,9 @@ struct RelationshipModifier {
 
 class Character {
  public:
-  Character(int id, double money_);
+  Character(CharacterId id, double money_);
 
-  int GetId() const { return this->id_; }
+  CharacterId GetId() const { return this->id_; }
 
   double GetMoney() const { return this->money_; }
 
@@ -42,24 +81,34 @@ class Character {
 
   void AddRelationship(std::unique_ptr<RelationshipModifier> relationship);
   void ExpireRelationships(int now);
-  double GetOpinionOf(const Character* target) const;
+  double GetOpinionOf(const Character* target);
+
+  std::unordered_map<CharacterTraitId, CharacterTrait> traits_;
 
  private:
   int id_;
   double money_;
-  std::list<std::unique_ptr<RelationshipModifier>> relationships_;
+  std::unordered_map<CharacterId, std::list<std::unique_ptr<RelationshipModifier>>>
+      relationships_;
 
+  std::unordered_map<CharacterId, double> opinion_cache;
 };
 
 // Holds game state
 class CVC {
  public:
-  CVC(std::vector<std::unique_ptr<Character>> characters,
-      std::mt19937 random_generator);
+  CVC(std::vector<Character*> characters,
+      Logger *logger, std::mt19937 random_generator);
 
   std::vector<Character*> GetCharacters() const;
 
-  void PrintState() const;
+  void LogState();
+
+  //features
+  const Stats& GetOpinionStats();
+  const Stats& GetOpinionOfStats(CharacterId id);
+  const Stats& GetOpinionByStats(CharacterId id);
+  const Stats& GetMoneyStats();
 
   // gets the current clock tick
   int Now() {
@@ -67,6 +116,9 @@ class CVC {
   }
 
   void Tick() {
+    //clear cache of stats
+    global_opinion_stats_.n_ = 0;
+    global_money_stats_.n_ = 0;
     ticks_++;
   }
 
@@ -74,26 +126,24 @@ class CVC {
 
   std::mt19937* GetRandomGenerator() { return &this->random_generator_; }
 
-  void Log(const LogLevel level, const char* format, ...) {
-    if(level >= LOG_LEVEL) {
-      if(LOG_SINK) {
-        va_list args;
-        va_start (args, format);
-        vfprintf (LOG_SINK, format, args);
-        va_end (args);
-      }
-    }
-  }
+  Logger* GetLogger() const { return this->logger_; }
 
+  int invalid_actions_;
 
  private:
-  const LogLevel LOG_LEVEL = WARN;
-  FILE *LOG_SINK = NULL;
 
+  void ComputeStats();
+
+  std::vector<Character*> characters_;
   int ticks_;
+  Logger *logger_;
   std::mt19937 random_generator_;
-  std::vector<std::unique_ptr<Character>> characters_;
 
+  Stats global_opinion_stats_;
+  std::unordered_map<CharacterId, Stats> opinion_of_stats_;
+  std::unordered_map<CharacterId, Stats> opinion_by_stats_;
+
+  Stats global_money_stats_;
 };
 
 #endif

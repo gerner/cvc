@@ -1,5 +1,7 @@
 #include <vector>
 #include <memory>
+#include <unordered_map>
+#include <cassert>
 
 #include "core.h"
 #include "action_factories.h"
@@ -33,7 +35,7 @@ double GiveActionFactory::EnumerateActions(
     if (best_target) {
       actions->push_back(std::make_unique<GiveAction>(
           character, 0.4, std::vector<double>({1.0, 0.2}), best_target,
-          character->GetMoney() * 0.1));
+          character->GetMoney()*.1));
       score = 0.4;
     }
   }
@@ -99,15 +101,52 @@ double TrivialActionFactory::EnumerateActions(
 }
 
 CompositeActionFactory::CompositeActionFactory(
-    std::vector<ActionFactory*> factories)
+    std::unordered_map<std::string, ActionFactory*> factories)
     : factories_(factories) {}
 
 double CompositeActionFactory::EnumerateActions(
     CVC* cvc, Character* character,
     std::vector<std::unique_ptr<Action>>* actions) {
   double score = 0.0;
-  for(ActionFactory* factory : factories_) {
-    score += factory->EnumerateActions(cvc, character, actions);
+  for(const auto& factory : factories_) {
+    score += factory.second->EnumerateActions(cvc, character, actions);
   }
   return score;
 }
+
+void CompositeActionFactory::Learn(const Action* action,
+                                   const Action* next_action) {
+  //pass learning on to the appropriate child factory
+  factories_[action->GetActionId()]->Learn(action, next_action);
+}
+
+std::unique_ptr<Action> ProbDistPolicy::ChooseAction(
+    std::vector<std::unique_ptr<Action>>* actions, CVC* cvc,
+    Character* character) {
+  // there must be at least one action to choose from (even if it's trivial)
+  assert(!actions->empty());
+
+  double sum_score = 0.0;
+  for(auto& action : *actions) {
+    sum_score += action->GetScore();
+  }
+
+  // choose one
+  std::uniform_real_distribution<> dist(0.0, 1.0);
+  double choice = dist(*cvc->GetRandomGenerator());
+  double sum_prob = 0;
+
+  // DecisionEngine is responsible for maintaining the lifecycle of the action
+  // so we'll move it to our state and ditch the rest when they go out of
+  // scope
+  for (std::unique_ptr<Action>& action : *actions) {
+    sum_prob += action->GetScore() / sum_score;
+    if (choice < sum_prob) {
+      assert(action->IsValid(cvc));
+      // keep this one action
+      return std::move(action);
+    }
+  }
+  assert(false);
+}
+

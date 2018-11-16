@@ -84,7 +84,7 @@ std::unique_ptr<SARSAGiveActionFactory> SARSAGiveActionFactory::Create(
   std::vector<double> weights;
 
   std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
-  for (size_t i = 0; i < 12; i++) {
+  for (size_t i = 0; i < 13; i++) {
     weights.push_back(weight_dist(random_generator));
   }
 
@@ -104,6 +104,9 @@ double SARSAGiveActionFactory::EnumerateActions(
     Character* best_target = NULL;
     std::vector<double> best_features;
     for (Character* target : cvc->GetCharacters()) {
+      if(target == character) {
+        continue;
+      }
       //TODO: consider some other features
       std::vector<double> features(
           {1.0, cvc->GetOpinionStats().mean_, cvc->GetOpinionStats().stdev_,
@@ -113,7 +116,8 @@ double SARSAGiveActionFactory::EnumerateActions(
            cvc->GetOpinionByStats(character->GetId()).stdev_,
            cvc->GetOpinionOfStats(character->GetId()).mean_,
            cvc->GetOpinionOfStats(character->GetId()).stdev_,
-           character->GetOpinionOf(target), target->GetOpinionOf(character)});
+           character->GetOpinionOf(target), target->GetOpinionOf(character),
+           target->GetMoney()});
       double score = Score(features);
       if(score > best_score) {
         best_score = score;
@@ -132,6 +136,64 @@ double SARSAGiveActionFactory::EnumerateActions(
   return 0.0;
 }
 
+std::unique_ptr<SARSAAskActionFactory> SARSAAskActionFactory::Create(
+    std::mt19937 random_generator) {
+  std::vector<double> weights;
+
+  std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
+  for (size_t i = 0; i < 13; i++) {
+    weights.push_back(weight_dist(random_generator));
+  }
+
+  return std::make_unique<SARSAAskActionFactory>(weights);
+}
+
+SARSAAskActionFactory::SARSAAskActionFactory(
+    std::vector<double> weights)
+    : SARSAActionFactory(weights) {}
+
+double SARSAAskActionFactory::EnumerateActions(
+    CVC* cvc, Character* character,
+    std::vector<std::unique_ptr<Action>>* actions) {
+
+  Character* best_target = NULL;
+  double best_score = 0.0;
+  std::vector<double> best_features;
+  for (Character* target : cvc->GetCharacters()) {
+    // skip self
+    if (character == target) {
+      continue;
+    }
+
+    if (target->GetMoney() <= 10.0) {
+      continue;
+    }
+    //TODO: consider some other features
+    std::vector<double> features(
+        {1.0, cvc->GetOpinionStats().mean_, cvc->GetOpinionStats().stdev_,
+         cvc->GetMoneyStats().mean_, cvc->GetMoneyStats().stdev_,
+         character->GetMoney(),
+         cvc->GetOpinionByStats(character->GetId()).mean_,
+         cvc->GetOpinionByStats(character->GetId()).stdev_,
+         cvc->GetOpinionOfStats(character->GetId()).mean_,
+         cvc->GetOpinionOfStats(character->GetId()).stdev_,
+         character->GetOpinionOf(target), target->GetOpinionOf(character),
+         target->GetMoney()});
+    double score = Score(features);
+    if(score > best_score) {
+      best_score = score;
+      best_features = features;
+      best_target = target;
+    }
+  }
+  if (best_target) {
+    actions->push_back(std::make_unique<AskAction>(
+        character, best_score, best_features, best_target,
+        10.0));
+    return best_score;
+  }
+  return 0.0;
+}
 std::unique_ptr<SARSAWorkActionFactory> SARSAWorkActionFactory::Create(
     std::mt19937 random_generator) {
   std::vector<double> weights;

@@ -26,7 +26,8 @@ class SARSAActionFactory : public ActionFactory {
 
 class SARSAGiveActionFactory : public SARSAActionFactory {
  public:
-  static std::unique_ptr<SARSAGiveActionFactory> Create(std::mt19937 random_generator);
+  static std::unique_ptr<SARSAGiveActionFactory> Create(
+      std::mt19937 random_generator);
 
   SARSAGiveActionFactory(std::vector<double> weights);
 
@@ -37,7 +38,10 @@ class SARSAGiveActionFactory : public SARSAActionFactory {
 
 class SARSAAskActionFactory : public SARSAActionFactory {
  public:
-  static std::unique_ptr<SARSAAskActionFactory> Create(std::mt19937 random_generator);
+  static std::unique_ptr<SARSAAskActionFactory> Create(
+      std::mt19937 random_generator);
+
+  SARSAAskActionFactory(std::vector<double> weights);
 
   double EnumerateActions(
       CVC* cvc, Character* character,
@@ -46,7 +50,8 @@ class SARSAAskActionFactory : public SARSAActionFactory {
 
 class SARSAWorkActionFactory : public SARSAActionFactory {
  public:
-  static std::unique_ptr<SARSAWorkActionFactory> Create(std::mt19937 random_generator);
+  static std::unique_ptr<SARSAWorkActionFactory> Create(
+      std::mt19937 random_generator);
 
   SARSAWorkActionFactory(std::vector<double> weights);
 
@@ -57,7 +62,8 @@ class SARSAWorkActionFactory : public SARSAActionFactory {
 
 class SARSATrivialActionFactory : public SARSAActionFactory {
  public:
-  static std::unique_ptr<SARSATrivialActionFactory> Create(std::mt19937 random_generator);
+  static std::unique_ptr<SARSATrivialActionFactory> Create(
+      std::mt19937 random_generator);
 
   SARSATrivialActionFactory(std::vector<double> weights);
 

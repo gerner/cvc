@@ -45,20 +45,24 @@ int main(int argc, char** argv) {
     agents.push_back(a.back().get());
   }
 
+  double e = 0.2;
+  double n = 0.0001;
+  double g = 1.0;//0.8;
+
   //learning agents
   std::unique_ptr<SARSAGiveActionFactory> sgaf =
-      SARSAGiveActionFactory::Create(random_generator);
+      SARSAGiveActionFactory::Create(n, g, random_generator);
   std::unique_ptr<SARSAAskActionFactory> saaf =
-      SARSAAskActionFactory::Create(random_generator);
+      SARSAAskActionFactory::Create(n, g, random_generator);
   std::unique_ptr<SARSATrivialActionFactory> staf =
-      SARSATrivialActionFactory::Create(random_generator);
+      SARSATrivialActionFactory::Create(n, g, random_generator);
   std::unique_ptr<SARSAWorkActionFactory> swaf =
-      SARSAWorkActionFactory::Create(random_generator);
+      SARSAWorkActionFactory::Create(n, g, random_generator);
   CompositeActionFactory scf({{"GiveAction", sgaf.get()},
                               {"AskAction", saaf.get()},
                               {"WorkAction", swaf.get()},
                               {"TrivialAction", staf.get()}});
-  EpsilonGreedyPolicy egp(0.2);
+  EpsilonGreedyPolicy egp(e);
   int num_learning_agents = agents.size();
   for(int i=0; i<5; i++) {
     c.push_back(std::make_unique<Character>(i + num_learning_agents,

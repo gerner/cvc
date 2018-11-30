@@ -42,8 +42,8 @@ bool WorkAction::IsValid(const CVC* gamestate) {
 }
 
 void WorkAction::TakeEffect(CVC* gamestate) {
-  SetReward(5.0);
-  GetActor()->SetMoney(GetActor()->GetMoney() + 5.0);
+  SetReward(1.0);
+  GetActor()->SetMoney(GetActor()->GetMoney() + 1.0);
 }
 
 AskAction::AskAction(Character* actor, double score,

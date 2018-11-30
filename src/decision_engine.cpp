@@ -148,6 +148,7 @@ void DecisionEngine::ChooseActions() {
 }
 
 void DecisionEngine::Learn() {
+  assert(experiences_.size() == agents_.size());
   for(auto& experience : experiences_) {
     if (experience->action_) {
       experience->agent_->action_factory_->Learn(

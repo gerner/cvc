@@ -45,8 +45,9 @@ class CompositeActionFactory : public ActionFactory {
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Action>>* actions) override;
 
+  void Learn(CVC* cvc, const Action* action,
+             const Action* next_action) override;
 
-  void Learn(const Action* action, const Action* next_action) override;
  private:
   std::unordered_map<std::string, ActionFactory*> factories_;
 };

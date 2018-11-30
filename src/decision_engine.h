@@ -16,7 +16,7 @@ class ActionFactory {
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Action>>* actions) = 0;
 
-  virtual void Learn(const Action* action, const Action* next_action);
+  virtual void Learn(CVC* cvc, const Action* action, const Action* next_action);
 };
 
 class ActionPolicy {

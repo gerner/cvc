@@ -13,7 +13,8 @@
 
 ActionFactory::~ActionFactory() {}
 
-void ActionFactory::Learn(const Action* action, const Action* next_action) {
+void ActionFactory::Learn(CVC* cvc, const Action* action,
+                          const Action* next_action) {
   //no default learning
 }
 
@@ -152,7 +153,7 @@ void DecisionEngine::Learn() {
   for(auto& experience : experiences_) {
     if (experience->action_) {
       experience->agent_->action_factory_->Learn(
-          experience->action_.get(), experience->next_action_.get());
+          cvc_, experience->action_.get(), experience->next_action_.get());
     }
   }
 }

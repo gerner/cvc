@@ -21,9 +21,14 @@ enum LogLevel {
 
 class Logger {
  public:
+  Logger() : logger_name_("LOGGER") {}
+  Logger(const char* logger_name, FILE* log_sink)
+      : logger_name_(logger_name), log_sink_(log_sink) {}
+
   void Log(const LogLevel level, const char* format, ...) {
     if(level >= log_level_) {
       if(log_sink_) {
+        fprintf(log_sink_, "%s	", logger_name_);
         va_list args;
         va_start (args, format);
         vfprintf (log_sink_, format, args);
@@ -32,6 +37,7 @@ class Logger {
     }
   }
  private:
+  const char* logger_name_;
   const LogLevel log_level_ = INFO;
   FILE *log_sink_ = stderr;
 };

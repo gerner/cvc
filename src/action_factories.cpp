@@ -35,7 +35,7 @@ double GiveActionFactory::EnumerateActions(
     if (best_target) {
       actions->push_back(std::make_unique<GiveAction>(
           character, 0.4, std::vector<double>({1.0, 0.2}), best_target,
-          character->GetMoney()*.1));
+          10.0));
       score = 0.4;
     }
   }
@@ -114,10 +114,10 @@ double CompositeActionFactory::EnumerateActions(
   return score;
 }
 
-void CompositeActionFactory::Learn(const Action* action,
+void CompositeActionFactory::Learn(CVC* cvc, const Action* action,
                                    const Action* next_action) {
   //pass learning on to the appropriate child factory
-  factories_[action->GetActionId()]->Learn(action, next_action);
+  factories_[action->GetActionId()]->Learn(cvc, action, next_action);
 }
 
 std::unique_ptr<Action> ProbDistPolicy::ChooseAction(

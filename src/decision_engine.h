@@ -1,6 +1,9 @@
 #ifndef DECISION_ENGINE_H_
 #define DECISION_ENGINE_H_
 
+#include <memory>
+#include <vector>
+
 #include "core.h"
 #include "action.h"
 
@@ -8,30 +11,70 @@
 class ActionFactory {
  public:
   virtual ~ActionFactory();
-  //
+
   virtual double EnumerateActions(
-      const CVC* cvc, Character* character,
+      CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Action>>* actions) = 0;
+
+  virtual void Learn(CVC* cvc, const Action* action, const Action* next_action);
+};
+
+class ActionPolicy {
+  public:
+   virtual std::unique_ptr<Action> ChooseAction(
+       std::vector<std::unique_ptr<Action>>* actions, CVC* cvc,
+       Character* character) = 0;
+};
+
+struct Agent {
+  Agent(Character* character, ActionFactory* action_factory,
+        ActionPolicy* policy)
+      : character_(character),
+        action_factory_(action_factory),
+        policy_(policy) {}
+
+  Character* character_;
+  ActionFactory* action_factory_;
+  ActionPolicy* policy_;
+};
+
+struct Experience {
+  Agent* agent_;
+
+  //s, a, r, s', a'
+  //need:
+  //Q(s, a): estimate of final score given prior state/action
+  //r: observed reward taking a in state s
+  //Q(s', a'): estimate of final score given next state/action
+
+  //previous action
+  std::unique_ptr<Action> action_;
+
+  //next action
+  std::unique_ptr<Action> next_action_;
 };
 
 class DecisionEngine {
  public:
-  DecisionEngine(std::vector<ActionFactory*> action_factories, CVC* cvc,
+  static std::unique_ptr<DecisionEngine> Create(std::vector<Agent*> agents,
+                                                CVC* cvc, FILE* action_log);
+
+  DecisionEngine(std::vector<Agent*> agents, CVC* cvc,
                  FILE* action_log);
   void GameLoop();
 
  private:
-  std::vector<std::unique_ptr<Action>> EnumerateActions(
-      Character* character);
   void ChooseActions();
   void EvaluateQueuedActions();
+  void Learn();
 
+  void LogInvalidAction(const Action* action);
   void LogAction(const Action* action);
 
-  const std::vector<ActionFactory*> action_factories_;
+  const std::vector<Agent*> agents_;
   CVC* cvc_;
   FILE* action_log_;
-  std::vector<std::unique_ptr<Action>> queued_actions_;
+  std::vector<std::unique_ptr<Experience>> experiences_;
 };
 
 #endif

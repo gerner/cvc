@@ -31,9 +31,10 @@ A tick will include several phases:
 * Notifications (requiring agent interaction) are revalidated and the receiving agent may respond. The resulting effect plays out.
 * Agents choose zero or more actions to take
 
-### Resources
+### Resources and State
 
-Every character has money. The objective is to maximize money.
+* Every character has money (maximizing this is the main objective)
+* Every character has an opinion of every other character
 
 ### Actions
 

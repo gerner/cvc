@@ -35,6 +35,13 @@ class Action {
     score_ = score;
   }
 
+  double GetReward() const {
+    return reward_;
+  }
+  void SetReward(double reward) {
+    reward_ = reward;
+  }
+
   const char* GetActionId() const {
     return action_id_;
   }
@@ -50,6 +57,7 @@ class Action {
   const char* action_id_;
   Character* actor_;
   double score_;
+  double reward_;
   std::vector<double> feature_vector_;
 
 };
@@ -57,6 +65,15 @@ class Action {
 class TrivialAction : public Action {
  public:
   TrivialAction(Character* actor, double score, std::vector<double> features);
+
+  // implementation of Action
+  bool IsValid(const CVC* gamestate);
+  void TakeEffect(CVC* gamestate);
+};
+
+class WorkAction : public Action {
+ public:
+  WorkAction(Character* actor, double score, std::vector<double> features);
 
   // implementation of Action
   bool IsValid(const CVC* gamestate);

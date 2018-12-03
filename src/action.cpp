@@ -1,4 +1,5 @@
 #include <cmath>
+#include <cassert>
 
 #include "action.h"
 #include "core.h"
@@ -19,7 +20,30 @@ TrivialAction::TrivialAction(Character* actor, double score,
 bool TrivialAction::IsValid(const CVC* gamestate) { return true; }
 
 void TrivialAction::TakeEffect(CVC* gamestate) {
-  gamestate->Log(DEBUG, "trivial by %d\n", GetActor()->GetId());
+  SetReward(0.0);
+  gamestate->GetLogger()->Log(DEBUG, "trivial by %d\n", GetActor()->GetId());
+}
+
+WorkAction::WorkAction(Character* actor, double score,
+                             std::vector<double> features)
+    : Action(__FUNCTION__, actor, score, features) {}
+
+bool WorkAction::IsValid(const CVC* gamestate) { 
+  //there has to be at least one character with positive opinion
+  //consider that this character "sponsors" this character
+  bool positive_opinion_exists = false;
+  for (Character* character : gamestate->GetCharacters()) {
+    if (character->GetOpinionOf(GetActor()) > 0.0) {
+      positive_opinion_exists = true;
+      break;
+    }
+  }
+  return positive_opinion_exists;
+}
+
+void WorkAction::TakeEffect(CVC* gamestate) {
+  SetReward(1.0);
+  GetActor()->SetMoney(GetActor()->GetMoney() + 1.0);
 }
 
 AskAction::AskAction(Character* actor, double score,
@@ -48,9 +72,9 @@ void AskAction::TakeEffect(CVC* gamestate) {
   if (success) {
     // on success:
     // transfer request_amount_ from target to actor
-    this->GetActor()->SetMoney(this->GetActor()->GetMoney() -
+    this->target_->SetMoney(this->target_->GetMoney() - this->request_amount_);
+    this->GetActor()->SetMoney(this->GetActor()->GetMoney() +
                                this->request_amount_);
-    this->target_->SetMoney(this->target_->GetMoney() + this->request_amount_);
 
     // increase opinion of actor (got money)
     this->GetActor()->AddRelationship(std::make_unique<RelationshipModifier>(
@@ -61,7 +85,8 @@ void AskAction::TakeEffect(CVC* gamestate) {
         this->GetActor(), gamestate->Now(), gamestate->Now() + 10,
         -1.0 * this->request_amount_));
 
-    gamestate->Log(DEBUG, "request by %d to %d of %f\n", this->GetActor()->GetId(),
+    SetReward(request_amount_);
+    gamestate->GetLogger()->Log(DEBUG, "request by %d to %d of %f\n", this->GetActor()->GetId(),
            this->target_->GetId(), this->request_amount_);
   } else {
     // on failure:
@@ -69,13 +94,16 @@ void AskAction::TakeEffect(CVC* gamestate) {
     this->GetActor()->AddRelationship(std::make_unique<RelationshipModifier>(
         this->target_, gamestate->Now(), gamestate->Now() + 10,
         this->request_amount_));
-    gamestate->Log(DEBUG, "request_failed by %d to %d of %f\n", this->GetActor()->GetId(),
+    SetReward(0.0);
+    gamestate->GetLogger()->Log(DEBUG, "request_failed by %d to %d of %f\n", this->GetActor()->GetId(),
            this->target_->GetId(), this->request_amount_);
   }
+
+  assert(target_->GetMoney() >= 0.0);
 }
 
 bool StealAction::IsValid(const CVC* gamestate) {
-  return this->target_->GetMoney() > steal_amount_;
+  return target_->GetMoney() > steal_amount_;
 }
 
 void StealAction::TakeEffect(CVC* gamestate) {
@@ -112,8 +140,11 @@ void GiveAction::TakeEffect(CVC* gamestate) {
   this->target_->AddRelationship(std::make_unique<RelationshipModifier>(
       this->GetActor(), gamestate->Now(), gamestate->Now() + 10, opinion_buff));
 
-  gamestate->Log(DEBUG, "gift by %d to %d of %f (increase opinion by %f)\n",
+  SetReward(-gift_amount_);
+  gamestate->GetLogger()->Log(DEBUG, "gift by %d to %d of %f (increase opinion by %f)\n",
          this->GetActor()->GetId(), this->target_->GetId(), this->gift_amount_,
          opinion_buff);
+
+  assert(GetActor()->GetMoney() >= 0.0);
 }
 

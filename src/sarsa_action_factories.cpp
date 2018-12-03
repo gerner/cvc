@@ -58,7 +58,7 @@ void SARSAActionFactory::Learn(CVC* cvc, const Action* action,
   assert(!std::isinf(d));
 
   learn_logger_->Log(
-      INFO, "%d	%f	%f	%f	%f	%f	%f	%f	%f\n", cvc->Now(), d,
+      INFO, "%d\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n", cvc->Now(), d,
       action->GetScore(), truth_estimate, action->GetReward(),
       action->GetFeatureVector()[0], action->GetFeatureVector()[1], weights_[0],
       weights_[1]);

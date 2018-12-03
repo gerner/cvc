@@ -54,7 +54,9 @@ class CompositeActionFactory : public ActionFactory {
 
 class ProbDistPolicy : public ActionPolicy {
  public:
-  std::unique_ptr<Action> ChooseAction(std::vector<std::unique_ptr<Action>>* actions, CVC* cvc, Character* character) override;
+  std::unique_ptr<Action> ChooseAction(
+      std::vector<std::unique_ptr<Action>>* actions, CVC* cvc,
+      Character* character) override;
 };
 
 #endif

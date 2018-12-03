@@ -27,8 +27,6 @@ void Character::ExpireRelationships(int now) {
     for (auto it = rel_pair->second.begin(); it != rel_pair->second.end();) {
       RelationshipModifier* relationship = it->get();
       if (now >= relationship->end_date_) {
-        //printf("expiring %d -> %d (%f)\n", this->GetId(),
-        //       relationship->target_->GetId(), relationship->opinion_modifier_);
         it = rel_pair->second.erase(it);
         updated_opinion = true;
       } else {

@@ -5,7 +5,6 @@
 #include <cassert>
 #include <sstream>
 #include <iterator>
-#include <cfloat>
 
 #include "core.h"
 #include "decision_engine.h"
@@ -58,40 +57,6 @@ void DecisionEngine::GameLoop() {
     // at this point we have a set of experiences that represent what we just
     // did (EvaluteQueuedActions) and what we expect to do next (ChooseActions)
 
-    //TODO: on-line model training
-    //we just walked through a training example for each action that go taken,
-    //so we can apply that
-
-    //SARSA-FA:
-    //experience: (s, a, r, s', a')
-    //  d = r + g*Q(s', a') - Q(s, a)
-    //  for each w_i:
-    //      w_i = w_i + n * d * F_i(s, a)
-    //
-    //where
-    //r is the reward that was calculated during EvaluteQueuedActions
-    //g is the discount factor (discounting future returns)
-    //n is the learning rate (gradient descent step-size)
-    //Q(s, a) is the score of a (previous estimate of future score)
-    //Q(s', a') is the score of a' (current estimate of future score)
-    //w are the weights that were used to choose a
-    //F(s, a) are the features that go with a
-
-    //we have one experience for each character
-
-    /*for(Experience *experience : experiences_) {
-      ActionFactory* action_factory = experience->agent->action_factory_;
-      Action* action = experience->action;
-      Action* next_action = experience->next_action;
-
-      //compute (estimate) the error
-      double d = action->GetReward() + g * next_action->GetScore() - action->GetScore();
-
-      //update the weights
-      for(int i = 0; i < action->GetFeatures().size(); i++) {
-        action_factory->GetWeights()[i] = action_factory->GetWeights()[i] + n * d * action->GetFeatures()[i];
-      }
-    }*/
     Learn();
 
     if(cvc_->Now() % 1000 == 0) {
@@ -164,6 +129,7 @@ void DecisionEngine::LogInvalidAction(const Action* action) {
     std::copy(features.begin(), features.end(),
               std::ostream_iterator<double>(s, "\t"));
 
+    //TODO: move to logging framework
     fprintf(action_log_, "%d\t%d\t%f\t%s\t%s\t%f\t%s\n", cvc_->Now(),
             action->GetActor()->GetId(), action->GetActor()->GetMoney(),
             "INVALID", action->GetActionId(), action->GetScore(),

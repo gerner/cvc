@@ -15,6 +15,7 @@ class ActionFactory {
   virtual double EnumerateActions(
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Action>>* actions) = 0;
+  virtual bool Respond(CVC* cvc, const Action* action);
 
   virtual void Learn(CVC* cvc, const Action* action, const Action* next_action);
 };
@@ -74,7 +75,18 @@ class DecisionEngine {
   const std::vector<Agent*> agents_;
   CVC* cvc_;
   FILE* action_log_;
+
+  // the set of experiences for the current game tick
+  // each of these represent the most recent experience for each agent, even the
+  // trivial experience, each consisting of the most recent action, the most
+  // recent reward and the next action that agent will take.
   std::vector<std::unique_ptr<Experience>> experiences_;
+
+  // a lookup from a character to the decision making capacity for that
+  // character, the agent controlling that character.
+  // this lookup MUST be maintained in the face of characters entering or
+  // leaving the game.
+  std::unordered_map<Character*, Agent*> agent_lookup_;
 };
 
 #endif

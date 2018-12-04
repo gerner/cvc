@@ -12,6 +12,18 @@
 
 ActionFactory::~ActionFactory() {}
 
+bool ActionFactory::Respond(CVC* cvc, const Action* action) {
+  //convenience base implementation for actions with no response mechanism
+
+  // default should never be called (just there for actions with no targets)
+  // and if there's no target, we can't find the corresponding agent for the
+  // action to formulate a response
+  // and any action factory that creates actions that require response should
+  // implement its own Respond method.
+  assert(nullptr == action->GetTarget());
+  abort();
+}
+
 void ActionFactory::Learn(CVC* cvc, const Action* action,
                           const Action* next_action) {
   //no default learning
@@ -35,7 +47,11 @@ std::unique_ptr<DecisionEngine> DecisionEngine::Create(
 
 DecisionEngine::DecisionEngine(std::vector<Agent*> agents,
                                CVC* cvc, FILE* action_log)
-    : agents_(agents), cvc_(cvc), action_log_(action_log) {}
+    : agents_(agents), cvc_(cvc), action_log_(action_log) {
+  for (Agent* agent : agents_) {
+    agent_lookup_[agent->character_] = agent;
+  }
+}
 
 void DecisionEngine::GameLoop() {
   cvc_->LogState();
@@ -80,6 +96,13 @@ void DecisionEngine::EvaluateQueuedActions() {
         LogInvalidAction(action.get());
         continue;
       }
+
+      // TODO: if a proposal, determine if the target accepts
+      /*bool accept = true;
+      if (action->GetTarget()) {
+        accept = agent_lookup_[action->GetTarget()]->action_factory_->Respond(
+            cvc_, action);
+      }*/
 
       // spit out the action vector:
       LogAction(action.get());

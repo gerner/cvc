@@ -8,6 +8,7 @@
 class Action {
  public:
   Action(const char* action_id, Character* actor, double score, std::vector<double> features);
+  Action(const char* action_id, Character* actor, Character* target, double score, std::vector<double> features);
   virtual ~Action();
   // Get this action's actor (the character taking the action)
   Character* GetActor() const {
@@ -15,6 +16,13 @@ class Action {
   }
   void SetActor(Character* actor) {
     actor_ = actor;
+  }
+
+  Character* GetTarget() const {
+    return target_;
+  }
+  void SetTarget(Character* target) {
+    target_ = target;
   }
 
   std::vector<double> GetFeatureVector() const {
@@ -56,6 +64,7 @@ class Action {
  private:
   const char* action_id_;
   Character* actor_;
+  Character* target_;
   double score_;
   double reward_;
   std::vector<double> feature_vector_;
@@ -92,7 +101,6 @@ class AskAction : public Action {
   void TakeEffect(CVC* gamestate);
 
  private:
-  Character* target_;
   double request_amount_;
 };
 
@@ -107,7 +115,6 @@ class StealAction : public Action {
   void TakeEffect(CVC* gamestate);
 
  private:
-  Character* target_;
   double steal_amount_;
 };
 
@@ -123,7 +130,6 @@ class GiveAction : public Action {
   void TakeEffect(CVC* gamestate);
 
  private:
-  Character* target_;
   double gift_amount_;
 };
 

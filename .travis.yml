@@ -16,6 +16,8 @@ before_script:
 script:
   - make
 
+dist: xenial
+
 addons:
   apt:
     sources:

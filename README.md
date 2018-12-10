@@ -1,4 +1,4 @@
-# Crusader VCs
+# Crusader VCs [![Build Status](https://travis-ci.org/gerner/cvc.svg?branch=master)](https://travis-ci.org/gerner/cvc)
 
 ## Installation
 

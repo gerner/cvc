@@ -1,0 +1,26 @@
+sudo: false
+
+language: cpp
+
+compiler:
+  - clang
+
+install:
+  - export CXX="clang++-3.7" CC="clang-3.6"
+
+before_script:
+  - mkdir build
+  - cd build
+  - cmake -D TESTS=ON ..
+
+script:
+  - make
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+      - llvm-toolchain-precise-3.7
+
+    packages:
+      - clang-3.6

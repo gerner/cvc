@@ -26,28 +26,32 @@ target_link_libraries(main
 # Add flags.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++14 -fno-rtti -g")
 
-#if(TESTS)
-#
-#  enable_testing()
-#
-#  # Process the CMakeLists.txt in third-party/googletest, sets project(gtest) and
-#  # project(gmock), gives access to ${gtest_SOURCE_DIR} and ${gmock_SOURCE_DIR}.
-#  add_subdirectory(third-party/googletest)
-#
-#  include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
-#  include_directories(${gmock_SOURCE_DIR}/include ${gmock_SOURCE_DIR})
-#
-#  # Tests. *-test.cpp should be added here.
-#  add_executable(tests
-#    ./test/main-test.cpp
+if(TESTS)
+
+  #include(GoogleTest)
+
+  enable_testing()
+
+  # Process the CMakeLists.txt in third-party/googletest, sets project(gtest) and
+  # project(gmock), gives access to ${gtest_SOURCE_DIR} and ${gmock_SOURCE_DIR}.
+  add_subdirectory(third-party/googletest)
+
+  include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
+  include_directories(${gmock_SOURCE_DIR}/include ${gmock_SOURCE_DIR})
+
+  # Tests. *-test.cpp should be added here.
+  add_executable(tests
+    ./test/core_test.cpp)
 #    ./test/function-test.cpp
 #    ./test/class-test.cpp)
 #
-#  # Link core, pthread and gtest to tests.
-#  target_link_libraries(tests
-#    pthread
-#    gtest
-#    gtest_main
-#    core)
-#
-#endif()
+  # Link core, pthread and gtest to tests.
+  target_link_libraries(tests
+    pthread
+    gtest
+    gtest_main
+    core)
+
+  #gtest_discover_tests(tests)
+
+endif()

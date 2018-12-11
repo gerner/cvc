@@ -28,7 +28,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++14 -fno-rtti -g")
 
 if(TESTS)
 
-  include(GoogleTest)
+  #include(GoogleTest)
 
   enable_testing()
 
@@ -52,6 +52,6 @@ if(TESTS)
     gtest_main
     core)
 
-  gtest_discover_tests(tests)
+  #gtest_discover_tests(tests)
 
 endif()

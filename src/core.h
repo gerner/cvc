@@ -88,6 +88,7 @@ class Character {
   void AddRelationship(std::unique_ptr<RelationshipModifier> relationship);
   void ExpireRelationships(int now);
   double GetOpinionOf(const Character* target);
+  double GetFreshOpinionOf(const Character* target);
 
   std::unordered_map<CharacterTraitId, CharacterTrait> traits_;
 
@@ -103,6 +104,7 @@ class Character {
 // Holds game state
 class CVC {
  public:
+  CVC() {}
   CVC(std::vector<Character*> characters,
       Logger *logger, std::mt19937 random_generator);
 
@@ -124,7 +126,9 @@ class CVC {
   void Tick() {
     //clear cache of stats
     global_opinion_stats_.n_ = 0;
+    opinion_of_stats_.clear();
     global_money_stats_.n_ = 0;
+    opinion_by_stats_.clear();
     ticks_++;
   }
 

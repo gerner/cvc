@@ -28,6 +28,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++14 -fno-rtti -g")
 
 if(TESTS)
 
+  include(GoogleTest)
+
   enable_testing()
 
   # Process the CMakeLists.txt in third-party/googletest, sets project(gtest) and
@@ -39,7 +41,7 @@ if(TESTS)
 
   # Tests. *-test.cpp should be added here.
   add_executable(tests
-    ./test/main-test.cpp)
+    ./test/core_test.cpp)
 #    ./test/function-test.cpp
 #    ./test/class-test.cpp)
 #
@@ -49,5 +51,7 @@ if(TESTS)
     gtest
     gtest_main
     core)
+
+  gtest_discover_tests(tests)
 
 endif()

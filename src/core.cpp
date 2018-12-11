@@ -47,6 +47,14 @@ void Character::AddRelationship(
       std::move(relationship));
 }
 
+double Character::GetFreshOpinionOf(const Character* target) {
+  auto cached_opinion = opinion_cache.find(target->GetId());
+  if(cached_opinion != opinion_cache.end()) {
+    opinion_cache.erase(cached_opinion);
+  }
+  return GetOpinionOf(target);
+}
+
 double Character::GetOpinionOf(const Character* target) {
   auto cached_opinion = opinion_cache.find(target->GetId());
   if(cached_opinion != opinion_cache.end()) {
@@ -174,7 +182,7 @@ void CVC::ComputeStats() {
       if (character->GetId() == target->GetId()) {
         continue;
       }
-      double opinion_of = target->GetOpinionOf(character);
+      double opinion_of = target->GetFreshOpinionOf(character);
       //only count of for global, we'll get the reflexive case later
       global_opinion_ss += opinion_of * opinion_of;
       global_opinion_sum += opinion_of;
@@ -184,15 +192,16 @@ void CVC::ComputeStats() {
 
       // it's convenient to compute this now, the cost is ammortized since it's
       // cached
-      double opinion_by = character->GetOpinionOf(target);
+      double opinion_by = character->GetFreshOpinionOf(target);
       by_ss += opinion_by * opinion_by;
       by_sum += opinion_by;
     }
 
+    //exclude the self character when setting n here
     opinion_of_stats_[character->GetId()].ComputeStats(of_sum, of_ss,
-                                                      characters_.size());
+                                                      characters_.size()-1);
     opinion_by_stats_[character->GetId()].ComputeStats(by_sum, by_ss,
-                                                      characters_.size());
+                                                      characters_.size()-1);
   }
   global_opinion_stats_.ComputeStats(
       global_opinion_sum, global_opinion_ss,

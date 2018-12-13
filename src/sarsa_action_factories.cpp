@@ -38,6 +38,9 @@ void SARSAActionFactory::ReadWeights(FILE* weights_file) {
 void SARSAActionFactory::Learn(CVC* cvc, const Action* action,
                                const Action* next_action) {
   //SARSA-FA:
+  //Q(s, a) = r + g * Q(s', a')
+  //where Q(s, a) was estimated
+  //we had some error on that which we can gradient descend
   //experience: (s, a, r, s', a')
   //  d = r + g*Q(s', a') - Q(s, a)
   //  for each w_i:

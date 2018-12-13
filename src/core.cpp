@@ -156,6 +156,17 @@ const Stats& CVC::GetMoneyStats() {
   return global_money_stats_;
 }
 
+void CVC::Tick() {
+  ExpireRelationships();
+
+  //clear cache of stats
+  global_opinion_stats_.n_ = 0;
+  opinion_of_stats_.clear();
+  global_money_stats_.n_ = 0;
+  opinion_by_stats_.clear();
+  ticks_++;
+}
+
 
 void CVC::ExpireRelationships() {
   for (auto character : this->characters_) {

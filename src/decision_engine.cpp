@@ -35,6 +35,7 @@ std::unique_ptr<DecisionEngine> DecisionEngine::Create(
       std::make_unique<DecisionEngine>(agents, cvc, action_log);
 
   //set up experiences
+  //TODO: experiences won't be 1:1 with agents
   for(Agent* agent : agents) {
     d->experiences_.push_back(std::make_unique<Experience>());
     d->experiences_.back()->agent_ = agent;
@@ -53,33 +54,30 @@ DecisionEngine::DecisionEngine(std::vector<Agent*> agents,
   }
 }
 
-void DecisionEngine::GameLoop() {
-  cvc_->LogState();
-  // TODO: don't just loop for some random hardcoded number of iterations
-
+void DecisionEngine::RunOneGameLoop() {
   // invariant: experiences_ represents the set of experiences including the
   // next action for all agents
   // and each experience represents the most recent experience (or null) of each
   // agent, including the next action the agent should take
-  for (; cvc_->Now() < 100000; cvc_->Tick()) {
-    assert(experiences_.size() == agents_.size());
-    // 0. expire relationships
-    cvc_->ExpireRelationships();
-    // 1. evaluate queued actions, s, a => r, s'
-    EvaluateQueuedActions();
-    // 2. choose actions for characters, a'
-    ChooseActions();
 
-    // at this point we have a set of experiences that represent what we just
-    // did (EvaluteQueuedActions) and what we expect to do next (ChooseActions)
+  // TODO: expereinces won't be 1:1 with agents
+  assert(experiences_.size() == agents_.size());
+  // TODO: do this later after actions play out 0. expire relationships
+  // 1. evaluate queued actions, s, a => r, s'
+  EvaluateQueuedActions();
+  // TODO: 2. tick the game forward
+  cvc_->Tick();
+  // 3. choose actions for characters, a'
+  ChooseActions();
 
-    Learn();
+  // at this point we have a set of experiences that represent what we just
+  // did (EvaluteQueuedActions) and what we expect to do next (ChooseActions)
 
-    if(cvc_->Now() % 1000 == 0) {
-      cvc_->LogState();
-    }
+  Learn();
+
+  if(cvc_->Now() % 1000 == 0) {
+    cvc_->LogState();
   }
-  cvc_->LogState();
 }
 
 void DecisionEngine::EvaluateQueuedActions() {
@@ -97,11 +95,12 @@ void DecisionEngine::EvaluateQueuedActions() {
         continue;
       }
 
-      // TODO: if a proposal, determine if the target accepts
+      // TODO: handle actions that require a response
+      // if a proposal, determine if the target accepts
       /*bool accept = true;
       if (action->GetTarget()) {
         accept = agent_lookup_[action->GetTarget()]->action_factory_->Respond(
-            cvc_, action);
+            cvc_, action.get());
       }*/
 
       // spit out the action vector:
@@ -124,6 +123,7 @@ void DecisionEngine::EvaluateQueuedActions() {
 void DecisionEngine::ChooseActions() {
   std::uniform_real_distribution<> dist(0.0, 1.0);
   // go through list of all characters
+  // TODO: this should really be over agents
   for (auto& experience : experiences_) {
     //enumerate the optoins
     std::vector<std::unique_ptr<Action>> actions;
@@ -134,9 +134,21 @@ void DecisionEngine::ChooseActions() {
     experience->next_action_ = experience->agent_->policy_->ChooseAction(
         &actions, cvc_, experience->agent_->character_);
   }
+
+  // for each agent choose a single action to take on the next tick
+  /*for (auto& agent : agents_) {
+    //enumerate the optoins
+    std::vector<std::unique_ptr<Action>> actions;
+    agent->action_factory_->EnumerateActions(
+        cvc_, experience->agent_->character_, &actions);
+
+    queued_actions_.push_back(
+        agent->policy_->ChooseAction(&actions, cvc_, agent->character_));
+  }*/
 }
 
 void DecisionEngine::Learn() {
+  //TODO: experiences won't be 1:1 with agents
   assert(experiences_.size() == agents_.size());
   for(auto& experience : experiences_) {
     if (experience->action_) {

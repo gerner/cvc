@@ -62,7 +62,15 @@ class DecisionEngine {
 
   DecisionEngine(std::vector<Agent*> agents, CVC* cvc,
                  FILE* action_log);
-  void GameLoop();
+
+  // Runs one loop of the game
+  // When this method returns a few things will be true
+  //    * pending actions are carried out on behalf of characters
+  //    * game state ticks forward, any passive activies are carried out
+  //    * new actions are chosen on behalf of characters, according to
+  //    configured agents
+  //    * those agents are given a chance to learn from experiences
+  void RunOneGameLoop();
 
  private:
   void ChooseActions();
@@ -76,6 +84,10 @@ class DecisionEngine {
   CVC* cvc_;
   FILE* action_log_;
 
+  //represents the next set of actions we're going to take
+  std::vector<Action*> queued_actions_;
+
+  // TODO: experiences won't be 1:1 with agents
   // the set of experiences for the current game tick
   // each of these represent the most recent experience for each agent, even the
   // trivial experience, each consisting of the most recent action, the most

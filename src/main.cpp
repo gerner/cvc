@@ -92,7 +92,16 @@ int main(int argc, char** argv) {
       DecisionEngine::Create(agents, &cvc, action_log);
 
   logger.Log(INFO, "running the game loop\n");
-  d->GameLoop();
+
+  cvc.LogState();
+  for (; cvc.Now() < 100000; cvc.Tick()) {
+    d->RunOneGameLoop();
+
+    if(cvc.Now() % 10000 == 0) {
+      cvc.LogState();
+    }
+  }
+  cvc.LogState();
 
   scf.WriteWeights();
 

@@ -23,27 +23,27 @@ TEST(StatsTest, TestComputeStats) {
 }
 
 class CVCTest : public ::testing::Test {
-  protected:
-    void SetUp() override {
-      std::mt19937 random_generator(rd());
+ protected:
+  void SetUp() override {
+    std::mt19937 random_generator(rd());
 
-      std::vector<Character*> c;
+    std::vector<Character*> c;
 
-      characters.push_back(std::make_unique<Character>(0, 100));
-      c.push_back(characters.back().get());
-      c.back()->traits_[kBackground] = 0;
-      characters.push_back(std::make_unique<Character>(1, 200));
-      c.push_back(characters.back().get());
-      c.back()->traits_[kBackground] = 0;
+    characters.push_back(std::make_unique<Character>(0, 100));
+    c.push_back(characters.back().get());
+    c.back()->traits_[kBackground] = 0;
+    characters.push_back(std::make_unique<Character>(1, 200));
+    c.push_back(characters.back().get());
+    c.back()->traits_[kBackground] = 0;
 
-      cvc = CVC(c, &logger, random_generator);
-    }
+    cvc = CVC(c, &logger, random_generator);
+  }
 
-    std::random_device rd;
-    Logger logger;
+  std::random_device rd;
+  Logger logger;
 
-    std::vector<std::unique_ptr<Character>> characters;
-    CVC cvc;
+  std::vector<std::unique_ptr<Character>> characters;
+  CVC cvc;
 };
 
 TEST_F(CVCTest, TestTick) {

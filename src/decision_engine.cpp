@@ -74,10 +74,6 @@ void DecisionEngine::RunOneGameLoop() {
   // did (EvaluteQueuedActions) and what we expect to do next (ChooseActions)
 
   Learn();
-
-  if(cvc_->Now() % 1000 == 0) {
-    cvc_->LogState();
-  }
 }
 
 void DecisionEngine::EvaluateQueuedActions() {

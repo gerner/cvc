@@ -94,7 +94,7 @@ int main(int argc, char** argv) {
   logger.Log(INFO, "running the game loop\n");
 
   cvc.LogState();
-  for (; cvc.Now() < 100000; cvc.Tick()) {
+  for (; cvc.Now() < 100000;) {
     d->RunOneGameLoop();
 
     if(cvc.Now() % 10000 == 0) {

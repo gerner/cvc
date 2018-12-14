@@ -14,8 +14,7 @@ class SARSAActionFactory : public ActionFactory {
   SARSAActionFactory(double n, double g, std::vector<double> weights,
                      Logger* learn_logger);
 
-  void Learn(CVC* cvc, const Action* action,
-             const Action* next_action) override;
+  void Learn(CVC* cvc, std::unique_ptr<Experience> experience) override;
 
   void WriteWeights(FILE* weights_file);
   void ReadWeights(FILE* weights_file);
@@ -93,8 +92,7 @@ class SARSACompositeActionFactory : public ActionFactory {
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Action>>* actions) override;
 
-  void Learn(CVC* cvc, const Action* action,
-             const Action* next_action) override;
+  void Learn(CVC* cvc, std::unique_ptr<Experience> experience) override;
 
   void ReadWeights();
   void WriteWeights();

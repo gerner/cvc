@@ -35,13 +35,12 @@ class RecordingTestActionFactory : public ActionFactory {
     return 0;
   }
 
-  void Learn(CVC* cvc, const Action* action,
-             const Action* next_action) override {
+  void Learn(CVC* cvc, std::unique_ptr<Experience> experience) override {
     EXPECT_NE(nullptr, cvc);
-    EXPECT_NE(nullptr, action);
-    EXPECT_NE(nullptr, next_action);
+    EXPECT_NE(nullptr, experience->action_);
+    EXPECT_NE(nullptr, experience->next_action_);
 
-    EXPECT_STREQ("RTA", action->GetActionId());
+    EXPECT_STREQ("RTA", experience->action_->GetActionId());
     learn_calls_++;
   }
 
@@ -65,10 +64,6 @@ class RecordingTestActionPolicy : public ActionPolicy {
 class DecisionEngineTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    // TODO: prepare decsion engine
-    // set up character(s)
-    // set up agent(s)
-    // set up CVC
 
     decision_engine_ = DecisionEngine::Create({&a_}, &cvc_, nullptr);
   }

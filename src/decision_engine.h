@@ -7,6 +7,27 @@
 #include "core.h"
 #include "action.h"
 
+class Agent;
+
+struct Experience {
+  Experience(Agent* agent, std::unique_ptr<Action> action, Action* next_action)
+      : agent_(agent), action_(std::move(action)), next_action_(next_action) {}
+
+  Agent* agent_;
+
+  //s, a, r, s', a'
+  //need:
+  //Q(s, a): estimate of final score given prior state/action
+  //r: observed reward taking a in state s
+  //Q(s', a'): estimate of final score given next state/action
+
+  //action this experience represents
+  std::unique_ptr<Action> action_;
+
+  //pointer to next action
+  Action* next_action_;
+};
+
 // Creates and scores action instances for a specific type of action
 class ActionFactory {
  public:
@@ -17,7 +38,7 @@ class ActionFactory {
       std::vector<std::unique_ptr<Action>>* actions) = 0;
   virtual bool Respond(CVC* cvc, const Action* action);
 
-  virtual void Learn(CVC* cvc, const Action* action, const Action* next_action);
+  virtual void Learn(CVC* cvc, std::unique_ptr<Experience> experience);
 };
 
 class ActionPolicy {
@@ -37,24 +58,6 @@ struct Agent {
   Character* character_;
   ActionFactory* action_factory_;
   ActionPolicy* policy_;
-};
-
-struct Experience {
-  Experience(Agent* agent, Action* action, Action* next_action)
-      : agent_(agent), action_(action), next_action_(next_action) {}
-  Agent* agent_;
-
-  //s, a, r, s', a'
-  //need:
-  //Q(s, a): estimate of final score given prior state/action
-  //r: observed reward taking a in state s
-  //Q(s', a'): estimate of final score given next state/action
-
-  //previous action
-  Action* action_;
-
-  //next action
-  Action* next_action_;
 };
 
 struct ExperienceByAgent {
@@ -100,10 +103,10 @@ class DecisionEngine {
   CVC* cvc_;
   FILE* action_log_;
 
-  //represents the next set of actions we're going to take
-  std::vector<std::unique_ptr<Action>> queued_actions_;
-
-  std::vector<std::unique_ptr<Action>> last_actions_;
+  // represents the next set of actions we're going to take
+  // note, these are partial experiences which haven't played out and don't
+  // have a next action assigned
+  std::vector<std::unique_ptr<Experience>> queued_actions_;
 
   // the set of experiences for the current game tick
   // there might be zero or more per agent

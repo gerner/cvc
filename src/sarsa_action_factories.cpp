@@ -35,8 +35,12 @@ void SARSAActionFactory::ReadWeights(FILE* weights_file) {
   }
 }
 
-void SARSAActionFactory::Learn(CVC* cvc, const Action* action,
-                               const Action* next_action) {
+void SARSAActionFactory::Learn(CVC* cvc,
+                               std::unique_ptr<Experience> experience) {
+
+  Action* action = experience->action_.get();
+  Action* next_action = experience->next_action_;
+
   //SARSA-FA:
   //Q(s, a) = r + g * Q(s', a')
   //where Q(s, a) was estimated
@@ -294,10 +298,11 @@ double SARSACompositeActionFactory::EnumerateActions(
   return score;
 }
 
-void SARSACompositeActionFactory::Learn(CVC* cvc, const Action* action,
-                                   const Action* next_action) {
+void SARSACompositeActionFactory::Learn(
+    CVC* cvc, std::unique_ptr<Experience> experience) {
   //pass learning on to the appropriate child factory
-  factories_[action->GetActionId()]->Learn(cvc, action, next_action);
+  factories_[experience->action_->GetActionId()]->Learn(cvc,
+                                                        std::move(experience));
 }
 
 void SARSACompositeActionFactory::ReadWeights() {

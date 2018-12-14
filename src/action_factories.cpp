@@ -114,10 +114,11 @@ double CompositeActionFactory::EnumerateActions(
   return score;
 }
 
-void CompositeActionFactory::Learn(CVC* cvc, const Action* action,
-                                   const Action* next_action) {
+void CompositeActionFactory::Learn(CVC* cvc,
+                                   std::unique_ptr<Experience> experience) {
   //pass learning on to the appropriate child factory
-  factories_[action->GetActionId()]->Learn(cvc, action, next_action);
+  factories_[experience->action_->GetActionId()]->Learn(cvc,
+                                                        std::move(experience));
 }
 
 std::unique_ptr<Action> ProbDistPolicy::ChooseAction(

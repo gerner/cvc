@@ -25,8 +25,7 @@ bool ActionFactory::Respond(CVC* cvc, const Action* action) {
   abort();
 }
 
-void ActionFactory::Learn(CVC* cvc, const Action* action,
-                          const Action* next_action) {
+void ActionFactory::Learn(CVC* cvc, std::unique_ptr<Experience> experience) {
   //no default learning
 }
 
@@ -49,8 +48,6 @@ DecisionEngine::DecisionEngine(std::vector<Agent*> agents,
 void DecisionEngine::RunOneGameLoop() {
   // 1. evaluate queued actions, s, a => r, s'
   EvaluateQueuedActions();
-  //actions evaluated, so dump the list
-  queued_actions_.clear();
 
   // 2. tick the game forward
   cvc_->Tick();
@@ -60,11 +57,6 @@ void DecisionEngine::RunOneGameLoop() {
 
   // 4. learn from experiences
   Learn();
-
-  // now we can ditch the experiences we just learned from and the corresponding
-  // actions
-  experiences_.clear();
-  last_actions_.clear();
 }
 
 void DecisionEngine::EvaluateQueuedActions() {
@@ -72,13 +64,15 @@ void DecisionEngine::EvaluateQueuedActions() {
   assert(0 == experiences_.size());
 
   // go through list of all the queued actions
-  for (auto& action : queued_actions_) {
+  for (auto& experience : queued_actions_) {
+
+    Action* action = experience->action_.get();
 
     // ensure the action is still valid in the current state
     if (!action->IsValid(cvc_)) {
       // if it's not valid any more, just skip it
       cvc_->invalid_actions_++;
-      LogInvalidAction(action.get());
+      LogInvalidAction(action);
       continue;
     }
 
@@ -91,25 +85,22 @@ void DecisionEngine::EvaluateQueuedActions() {
     }*/
 
     // spit out the action vector:
-    LogAction(action.get());
+    LogAction(action);
 
     // let the action's effect play out
     //  this includes any character interaction
     action->TakeEffect(cvc_);
 
-    // create a (partial) experience out of this action
-    // TODO: any way to avoid agent_lookup_ here? can't I keep track of that
-    // somehow?
-    experiences_.push_back(std::make_unique<Experience>(
-        agent_lookup_[action->GetActor()], action.get(), nullptr));
+    // stick this (still partial) experience in the list of experiences for this
+    // tick
+    experiences_.push_back(std::move(experience));
 
-    //keep experiences for this turn in a heap cause we want these sorted
+    // we keep experiences for this turn in a heap cause we want these sorted
     std::push_heap(experiences_.begin(), experiences_.end(),
                    ExperienceByAgent());
-
-    //hang on to this action for learning purposes
-    last_actions_.push_back(std::move(action));
   }
+  //actions evaluated, so dump the list
+  queued_actions_.clear();
 
   //other folks expect experiences to be sorted by agent
   std::sort_heap(experiences_.begin(), experiences_.end(), ExperienceByAgent());
@@ -127,16 +118,18 @@ void DecisionEngine::ChooseActions() {
     std::vector<std::unique_ptr<Action>> actions;
     agent->action_factory_->EnumerateActions(cvc_, agent->character_, &actions);
 
-    // choose one according to the policy
-    queued_actions_.push_back(
-        agent->policy_->ChooseAction(&actions, cvc_, agent->character_));
+    // choose one according to the policy and store it, along with this agent in
+    // a partial Experience which we will fill out later
+    queued_actions_.push_back(std::make_unique<Experience>(
+        agent, agent->policy_->ChooseAction(&actions, cvc_, agent->character_),
+        nullptr));
 
     // now that we have a new action, we can update all partial
     // experiences for this agent with this updated action
     auto p = std::equal_range(experiences_.begin(), experiences_.end(),
                               agent, ExperienceByAgent());
     for(auto i = p.first; i != p.second; i++) {
-      i->get()->next_action_ = queued_actions_.back().get();
+      i->get()->next_action_ = queued_actions_.back()->action_.get();
     }
   }
 }
@@ -146,9 +139,12 @@ void DecisionEngine::Learn() {
     assert(experience->action_);
     assert(experience->next_action_);
 
-    experience->agent_->action_factory_->Learn(cvc_, experience->action_,
-                                               experience->next_action_);
+    //let the agent take ownership of this experience
+    experience->agent_->action_factory_->Learn(cvc_, std::move(experience));
   }
+
+  //all of the experiences have been moved elsewhere, ditch the empty pointers
+  experiences_.clear();
 }
 
 void DecisionEngine::LogInvalidAction(const Action* action) {

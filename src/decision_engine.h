@@ -40,6 +40,8 @@ struct Agent {
 };
 
 struct Experience {
+  Experience(Agent* agent, Action* action, Action* next_action)
+      : agent_(agent), action_(action), next_action_(next_action) {}
   Agent* agent_;
 
   //s, a, r, s', a'
@@ -49,10 +51,24 @@ struct Experience {
   //Q(s', a'): estimate of final score given next state/action
 
   //previous action
-  std::unique_ptr<Action> action_;
+  Action* action_;
 
   //next action
-  std::unique_ptr<Action> next_action_;
+  Action* next_action_;
+};
+
+struct ExperienceByAgent {
+  bool operator() (const Agent* lhs, const std::unique_ptr<Experience>& rhs) {
+    return lhs < rhs->agent_;
+  }
+
+  bool operator() (const std::unique_ptr<Experience>& lhs, const Agent* rhs) {
+    return lhs->agent_ < rhs;
+  }
+
+  bool operator() (const std::unique_ptr<Experience>& lhs, const std::unique_ptr<Experience>& rhs) {
+    return lhs->agent_ < rhs->agent_;
+  }
 };
 
 class DecisionEngine {
@@ -85,13 +101,12 @@ class DecisionEngine {
   FILE* action_log_;
 
   //represents the next set of actions we're going to take
-  std::vector<Action*> queued_actions_;
+  std::vector<std::unique_ptr<Action>> queued_actions_;
 
-  // TODO: experiences won't be 1:1 with agents
+  std::vector<std::unique_ptr<Action>> last_actions_;
+
   // the set of experiences for the current game tick
-  // each of these represent the most recent experience for each agent, even the
-  // trivial experience, each consisting of the most recent action, the most
-  // recent reward and the next action that agent will take.
+  // there might be zero or more per agent
   std::vector<std::unique_ptr<Experience>> experiences_;
 
   // a lookup from a character to the decision making capacity for that

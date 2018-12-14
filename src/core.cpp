@@ -110,7 +110,6 @@ CVC::CVC(std::vector<Character*> characters, Logger* logger,
       logger_(logger),
       random_generator_(random_generator) {}
 
-//TODO: don't do this, have the vector of pointers handy
 std::vector<Character*> CVC::GetCharacters() const { return characters_; }
 
 void CVC::LogState() {

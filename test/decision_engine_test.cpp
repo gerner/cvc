@@ -37,6 +37,11 @@ class RecordingTestActionFactory : public ActionFactory {
 
   void Learn(CVC* cvc, const Action* action,
              const Action* next_action) override {
+    EXPECT_NE(nullptr, cvc);
+    EXPECT_NE(nullptr, action);
+    EXPECT_NE(nullptr, next_action);
+
+    EXPECT_STREQ("RTA", action->GetActionId());
     learn_calls_++;
   }
 

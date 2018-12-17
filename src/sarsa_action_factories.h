@@ -28,10 +28,14 @@ class SARSALearner {
   Logger* learn_logger_;
 };
 
-class SARSAActionFactory : public ActionFactory {
+class SARSAActionFactory {
  public:
   SARSAActionFactory(double n, double g, std::vector<double> weights,
                      Logger* learn_logger);
+
+  virtual double EnumerateActions(
+      CVC* cvc, Character* character,
+      std::vector<std::unique_ptr<Action>>* actions) = 0;
 
   void Learn(CVC* cvc, std::unique_ptr<Experience> experience) {
     learner_.Learn(cvc, std::move(experience));

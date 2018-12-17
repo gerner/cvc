@@ -79,7 +79,7 @@ double AskActionFactory::EnumerateActions(
   return score;
 }
 
-double AskResponseFactory::Respond(
+double AskResponseFactory::EnumerateResponses(
     CVC* cvc, Character* character, Action* action,
     std::vector<std::unique_ptr<Action>>* responses) {
 

@@ -29,30 +29,6 @@ struct Experience {
   Action* next_action_;
 };
 
-class ActionLearner {
- public:
-  virtual ~ActionLearner();
-  virtual void Learn(CVC* cvc, std::unique_ptr<Experience> experience);
-};
-
-// Creates and scores action instances for a specific type of action
-class ActionFactory {
- public:
-  virtual ~ActionFactory();
-
-  virtual double EnumerateActions(
-      CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Action>>* actions) = 0;
-
-};
-
-class ResponseFactory {
- public:
-  virtual ~ResponseFactory();
-  virtual double Respond(CVC* cvc, Character* character, Action* action,
-                         std::vector<std::unique_ptr<Action>>* actions);
-};
-
 class ActionPolicy {
   public:
    virtual std::unique_ptr<Action> ChooseAction(

@@ -11,29 +11,6 @@
 #include "decision_engine.h"
 #include "action.h"
 
-ActionLearner::~ActionLearner() {}
-
-void ActionLearner::Learn(CVC* cvc, std::unique_ptr<Experience> experience) {
-  //no default learning
-}
-
-ResponseFactory::~ResponseFactory() {}
-
-double ResponseFactory::Respond(CVC* cvc, Character* character, Action* action,
-                                std::vector<std::unique_ptr<Action>>* actions) {
-  //convenience base implementation for actions with no response mechanism
-
-  // default should never be called (just there for actions with no targets)
-  // and if there's no target, we can't find the corresponding agent for the
-  // action to formulate a response
-  // and any action factory that creates actions that require response should
-  // implement its own Respond method.
-  assert(nullptr == action->GetTarget());
-  abort();
-}
-
-ActionFactory::~ActionFactory() {}
-
 std::unique_ptr<DecisionEngine> DecisionEngine::Create(
     std::vector<Agent*> agents, CVC* cvc, FILE* action_log) {
   std::unique_ptr<DecisionEngine> d =

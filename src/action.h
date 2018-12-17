@@ -58,6 +58,8 @@ class Action {
   // the given character
   virtual bool IsValid(const CVC* gamestate) = 0;
 
+  virtual bool RequiresResponse();
+
   // Have this action take effect by the given character
   virtual void TakeEffect(CVC* gamestate) = 0;
 
@@ -74,6 +76,15 @@ class Action {
 class TrivialAction : public Action {
  public:
   TrivialAction(Character* actor, double score, std::vector<double> features);
+
+  // implementation of Action
+  bool IsValid(const CVC* gamestate);
+  void TakeEffect(CVC* gamestate);
+};
+
+class TrivialResponse : public Action {
+ public:
+  TrivialResponse(Character* actor, double score, std::vector<double> features);
 
   // implementation of Action
   bool IsValid(const CVC* gamestate);
@@ -98,10 +109,28 @@ class AskAction : public Action {
 
   // implementation of Action
   bool IsValid(const CVC* gamestate);
+  bool RequiresResponse() override;
   void TakeEffect(CVC* gamestate);
+
+  double GetRequestAmount() const {
+    return request_amount_;
+  }
 
  private:
   double request_amount_;
+};
+
+class AskSuccessAction : public Action {
+ public:
+  AskSuccessAction(Character* actor, double score, std::vector<double> features,
+                   Character* target, AskAction* source_action);
+
+  // implementation of Action
+  bool IsValid(const CVC* gamestate);
+  void TakeEffect(CVC* gamestate);
+
+ private:
+  AskAction* source_action_;
 };
 
 // StealAction: (try to) steal money from target character, succeeds with chance

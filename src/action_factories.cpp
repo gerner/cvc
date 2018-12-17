@@ -79,6 +79,41 @@ double AskActionFactory::EnumerateActions(
   return score;
 }
 
+double AskResponseFactory::Respond(
+    CVC* cvc, Character* character, Action* action,
+    std::vector<std::unique_ptr<Action>>* responses) {
+
+  AskAction* ask_action = (AskAction*)action;
+
+  // check to see if the target will accept
+  // opinion < 0 => no, otherwise some distribution improves with opinion
+  double opinion = ask_action->GetTarget()->GetOpinionOf(ask_action->GetActor());
+  std::uniform_real_distribution<> dist(0.0, 1.0);
+  bool success = false;
+  if (opinion > 0.0 && dist(*cvc->GetRandomGenerator()) <
+                           1.0 / (1.0 + exp(-10.0 * (opinion - 0.5)))) {
+    success = true;
+  }
+
+  if (success) {
+    responses->push_back(std::make_unique<AskSuccessAction>(
+        ask_action->GetTarget(), 1.0, std::vector<double>({1.0}),
+        ask_action->GetActor(), ask_action));
+  } else {
+    // on failure:
+    responses->push_back(std::make_unique<TrivialResponse>(
+        ask_action->GetTarget(), 1.0, std::vector<double>({1.0})));
+    // decrease opinion of actor (refused request)
+    /*this->GetActor()->AddRelationship(std::make_unique<RelationshipModifier>(
+        this->GetTarget(), gamestate->Now(), gamestate->Now() + 10,
+        this->request_amount_));
+    SetReward(0.0);
+    gamestate->GetLogger()->Log(DEBUG, "request_failed by %d to %d of %f\n", this->GetActor()->GetId(),
+           this->GetTarget()->GetId(), this->request_amount_);*/
+  }
+  return 1.0;
+}
+
 double WorkActionFactory::EnumerateActions(
     CVC* cvc, Character* character,
     std::vector<std::unique_ptr<Action>>* actions) {
@@ -112,13 +147,6 @@ double CompositeActionFactory::EnumerateActions(
     score += factory.second->EnumerateActions(cvc, character, actions);
   }
   return score;
-}
-
-void CompositeActionFactory::Learn(CVC* cvc,
-                                   std::unique_ptr<Experience> experience) {
-  //pass learning on to the appropriate child factory
-  factories_[experience->action_->GetActionId()]->Learn(cvc,
-                                                        std::move(experience));
 }
 
 std::unique_ptr<Action> ProbDistPolicy::ChooseAction(

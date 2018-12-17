@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <vector>
+#include <list>
 
 #include "core.h"
 #include "action.h"
@@ -28,6 +29,12 @@ struct Experience {
   Action* next_action_;
 };
 
+class ActionLearner {
+ public:
+  virtual ~ActionLearner();
+  virtual void Learn(CVC* cvc, std::unique_ptr<Experience> experience);
+};
+
 // Creates and scores action instances for a specific type of action
 class ActionFactory {
  public:
@@ -36,9 +43,14 @@ class ActionFactory {
   virtual double EnumerateActions(
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Action>>* actions) = 0;
-  virtual bool Respond(CVC* cvc, const Action* action);
 
-  virtual void Learn(CVC* cvc, std::unique_ptr<Experience> experience);
+};
+
+class ResponseFactory {
+ public:
+  virtual ~ResponseFactory();
+  virtual double Respond(CVC* cvc, Character* character, Action* action,
+                         std::vector<std::unique_ptr<Action>>* actions);
 };
 
 class ActionPolicy {
@@ -48,16 +60,39 @@ class ActionPolicy {
        Character* character) = 0;
 };
 
-struct Agent {
-  Agent(Character* character, ActionFactory* action_factory,
-        ActionPolicy* policy)
+// An agent acts on behalf of a character in CVC
+// It must be able to, given the current game state choose an "independent"
+// action representing what the character will do next
+// It must be able to, given the current game state and another character's
+// proposal choose a "response" action
+// It should learn from experiences during a game tick
+class Agent {
+ public:
+  Agent(Character* character) : character_(character) {}
+
+  /*Agent(Character* character, ActionFactory* action_factory,
+        ResponseFactory* response_factory, ActionPolicy* policy)
       : character_(character),
         action_factory_(action_factory),
-        policy_(policy) {}
+        response_factory_(response_factory),
+        policy_(policy) {}*/
+
+  virtual ~Agent() {}
+
+  // lifecycle:
+  // ChooseAction/Respond -> Action -> action plays out -> Experience -> Learn
+  virtual std::unique_ptr<Action> ChooseAction(CVC* cvc) = 0;
+  virtual std::unique_ptr<Action> Respond(CVC* cvc, Action* action) = 0;
+  virtual void Learn(CVC* cvc, std::unique_ptr<Experience> experience) = 0;
+
+  Character* GetCharacter() const { return character_; }
+
+ //protected:
 
   Character* character_;
-  ActionFactory* action_factory_;
-  ActionPolicy* policy_;
+  /*ActionFactory* action_factory_;
+  ResponseFactory* response_factory_;
+  ActionPolicy* policy_;*/
 };
 
 struct ExperienceByAgent {
@@ -106,7 +141,7 @@ class DecisionEngine {
   // represents the next set of actions we're going to take
   // note, these are partial experiences which haven't played out and don't
   // have a next action assigned
-  std::vector<std::unique_ptr<Experience>> queued_actions_;
+  std::list<std::unique_ptr<Experience>> queued_actions_;
 
   // the set of experiences for the current game tick
   // there might be zero or more per agent

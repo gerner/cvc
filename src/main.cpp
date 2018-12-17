@@ -34,6 +34,8 @@ int main(int argc, char** argv) {
                              {"AskAction", &aaf},
                              {"WorkAction", &waf},
                              {"TrivialAction", &taf}});
+  AskResponseFactory rf;
+
   ProbDistPolicy pdp;
   for(int i=0; i<5; i++) {
     c.push_back(std::make_unique<Character>(i, money_dist(random_generator)));
@@ -41,7 +43,7 @@ int main(int argc, char** argv) {
     characters.back()->traits_[kBackground] = background_dist(random_generator);
     characters.back()->traits_[kLanguage] = language_dist(random_generator);
 
-    a.push_back(std::make_unique<Agent>(characters.back(), &cf, &pdp));
+    a.push_back(std::make_unique<HeuristicAgent>(characters.back(), &cf, &rf, &pdp));
     agents.push_back(a.back().get());
   }
 
@@ -70,6 +72,10 @@ int main(int argc, char** argv) {
                                    {"WorkAction", swaf.get()},
                                    {"TrivialAction", staf.get()}},
                                    "/tmp/weights");
+  /*std::unique_ptr<SARSAAskResponseFactory> sarf =
+      SARSAAskResponseFactory::Create(n, g, random_generator,
+                                      &ask_response_learn_logger);*/
+
   scf.ReadWeights();
   EpsilonGreedyPolicy egp(e);
   int num_non_learning_agents = agents.size();
@@ -80,7 +86,7 @@ int main(int argc, char** argv) {
     characters.back()->traits_[kBackground] = background_dist(random_generator);
     characters.back()->traits_[kLanguage] = language_dist(random_generator);
 
-    a.push_back(std::make_unique<Agent>(characters.back(), &scf, &egp));
+    a.push_back(std::make_unique<SARSAAgent>(characters.back(), &scf, nullptr, &egp));
     agents.push_back(a.back().get());
   }
 

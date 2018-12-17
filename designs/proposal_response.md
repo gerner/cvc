@@ -144,3 +144,17 @@ A few updates to the exising ActionFactory model (and learning)
   response)
 * This interaction creates a new experience for the responder to learn from
 
+Another tricky point is that for many (most? all?) proposals we are really
+choosing between two alternatives: accept or reject. We need to estimate a
+score for each of those options, and depending on which we choose learn from
+the resulting experience.
+
+In the face of a proposal, we'll generate several alternative responses, each
+with a score. One of those responses is chosen according to the agent's policy.
+The action gets carried out and we learn from the resulting experience. The
+model for scoring accepting the proposal and that for rejecting should be
+distinct. That is, they should be able to interpret features separately and
+perhaps even have different features.
+
+
+

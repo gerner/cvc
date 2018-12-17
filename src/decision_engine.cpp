@@ -11,9 +11,16 @@
 #include "decision_engine.h"
 #include "action.h"
 
-ActionFactory::~ActionFactory() {}
+ActionLearner::~ActionLearner() {}
 
-bool ActionFactory::Respond(CVC* cvc, const Action* action) {
+void ActionLearner::Learn(CVC* cvc, std::unique_ptr<Experience> experience) {
+  //no default learning
+}
+
+ResponseFactory::~ResponseFactory() {}
+
+double ResponseFactory::Respond(CVC* cvc, Character* character, Action* action,
+                                std::vector<std::unique_ptr<Action>>* actions) {
   //convenience base implementation for actions with no response mechanism
 
   // default should never be called (just there for actions with no targets)
@@ -25,9 +32,7 @@ bool ActionFactory::Respond(CVC* cvc, const Action* action) {
   abort();
 }
 
-void ActionFactory::Learn(CVC* cvc, std::unique_ptr<Experience> experience) {
-  //no default learning
-}
+ActionFactory::~ActionFactory() {}
 
 std::unique_ptr<DecisionEngine> DecisionEngine::Create(
     std::vector<Agent*> agents, CVC* cvc, FILE* action_log) {
@@ -46,16 +51,24 @@ DecisionEngine::DecisionEngine(std::vector<Agent*> agents,
 }
 
 void DecisionEngine::RunOneGameLoop() {
+  // move the game forward by one tick
+  // we'll let agents play out actions, the game state will update agents will
+  // choose new actions.
+  // during this process agents will accumulate a set of experiences which they
+  // then have the opportunity to learn from
+
   // 1. evaluate queued actions, s, a => r, s'
+  // note, during this phase we might have some interactions between characters,
+  // facilitated by their agents.
   EvaluateQueuedActions();
 
   // 2. tick the game forward
   cvc_->Tick();
 
-  // 3. choose actions for characters, a'
+  // 3. choose independent actions for characters, a'
   ChooseActions();
 
-  // 4. learn from experiences
+  // 4. learn from experiences accumulated during this tick
   Learn();
 }
 
@@ -76,13 +89,19 @@ void DecisionEngine::EvaluateQueuedActions() {
       continue;
     }
 
-    // TODO: handle actions that require a response
-    // if a proposal, determine if the target accepts
-    /*bool accept = true;
-    if (action->GetTarget()) {
-      accept = agent_lookup_[action->GetTarget()]->action_factory_->Respond(
-          cvc_, action.get());
-    }*/
+    // handle actions that require a response
+    // if a proposal, choose how the target responds
+    if (action->RequiresResponse()) {
+      assert(action->GetTarget());
+      assert(agent_lookup_.find(action->GetTarget()) != agent_lookup_.end());
+      Agent* responding_agent = agent_lookup_[action->GetTarget()];
+
+      std::vector<std::unique_ptr<Action>> responses;
+
+      //TODO: agents should always be able to explicitly respond
+      queued_actions_.push_back(std::make_unique<Experience>(
+          responding_agent, responding_agent->Respond(cvc_, action), nullptr));
+    }
 
     // spit out the action vector:
     LogAction(action);
@@ -111,21 +130,10 @@ void DecisionEngine::EvaluateQueuedActions() {
 }
 
 void DecisionEngine::ChooseActions() {
-  std::uniform_real_distribution<> dist(0.0, 1.0);
   // go through list of all characters
   for (Agent* agent : agents_) {
-    //enumerate the optoins
-    std::vector<std::unique_ptr<Action>> actions;
-    agent->action_factory_->EnumerateActions(cvc_, agent->character_, &actions);
+    queued_actions_.push_back(std::make_unique<Experience>(agent, agent->ChooseAction(cvc_), nullptr));
 
-    // choose one according to the policy and store it, along with this agent in
-    // a partial Experience which we will fill out later
-    queued_actions_.push_back(std::make_unique<Experience>(
-        agent, agent->policy_->ChooseAction(&actions, cvc_, agent->character_),
-        nullptr));
-
-    // now that we have a new action, we can update all partial
-    // experiences for this agent with this updated action
     auto p = std::equal_range(experiences_.begin(), experiences_.end(),
                               agent, ExperienceByAgent());
     for(auto i = p.first; i != p.second; i++) {
@@ -140,7 +148,7 @@ void DecisionEngine::Learn() {
     assert(experience->next_action_);
 
     //let the agent take ownership of this experience
-    experience->agent_->action_factory_->Learn(cvc_, std::move(experience));
+    experience->agent_->Learn(cvc_, std::move(experience));
   }
 
   //all of the experiences have been moved elsewhere, ditch the empty pointers

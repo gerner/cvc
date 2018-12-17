@@ -9,17 +9,15 @@
 #include "action_factories.h"
 #include "decision_engine.h"
 
-class SARSAActionFactory : public ActionFactory {
+class SARSALearner {
  public:
-  SARSAActionFactory(double n, double g, std::vector<double> weights,
-                     Logger* learn_logger);
-
-  void Learn(CVC* cvc, std::unique_ptr<Experience> experience) override;
+  SARSALearner(double n, double g, std::vector<double> weights,
+               Logger* learn_logger);
+  void Learn(CVC* cvc, std::unique_ptr<Experience> experience);
 
   void WriteWeights(FILE* weights_file);
   void ReadWeights(FILE* weights_file);
 
- protected:
   double Score(const std::vector<double>& features);
 
  private:
@@ -28,6 +26,36 @@ class SARSAActionFactory : public ActionFactory {
   std::vector<double> weights_;
 
   Logger* learn_logger_;
+};
+
+class SARSAActionFactory : public ActionFactory {
+ public:
+  SARSAActionFactory(double n, double g, std::vector<double> weights,
+                     Logger* learn_logger);
+
+  void Learn(CVC* cvc, std::unique_ptr<Experience> experience) {
+    learner_.Learn(cvc, std::move(experience));
+  }
+
+  double Score(const std::vector<double>& features) {
+    return learner_.Score(features);
+  }
+
+  void WriteWeights(FILE* weights_file) {
+    learner_.WriteWeights(weights_file);
+  }
+  void ReadWeights(FILE* weights_file) {
+    learner_.ReadWeights(weights_file);
+  }
+
+ private:
+  SARSALearner learner_;
+};
+
+class SARSAResponseFactory {
+ public:
+  virtual double Respond(CVC* cvc, Action* action,
+                         std::vector<std::unique_ptr<Action>>* actions) = 0;
 };
 
 class SARSAGiveActionFactory : public SARSAActionFactory {
@@ -82,7 +110,7 @@ class SARSATrivialActionFactory : public SARSAActionFactory {
       std::vector<std::unique_ptr<Action>>* actions) override;
 };
 
-class SARSACompositeActionFactory : public ActionFactory {
+class SARSACompositeActionFactory {
  public:
   SARSACompositeActionFactory(
       std::unordered_map<std::string, SARSAActionFactory*> factories,
@@ -90,9 +118,9 @@ class SARSACompositeActionFactory : public ActionFactory {
 
   double EnumerateActions(
       CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Action>>* actions) override;
+      std::vector<std::unique_ptr<Action>>* actions);
 
-  void Learn(CVC* cvc, std::unique_ptr<Experience> experience) override;
+  void Learn(CVC* cvc, std::unique_ptr<Experience> experience);
 
   void ReadWeights();
   void WriteWeights();
@@ -112,6 +140,42 @@ class EpsilonGreedyPolicy : public ActionPolicy {
 
  private:
   double epsilon_;
+};
+
+class SARSAAgent : public Agent {
+ public:
+  SARSAAgent(Character* character, SARSACompositeActionFactory* action_factory,
+             SARSAResponseFactory* response_factory, ActionPolicy* policy)
+      : Agent(character),
+        action_factory_(action_factory),
+        response_factory_(response_factory),
+        policy_(policy) {}
+
+  std::unique_ptr<Action> ChooseAction(CVC* cvc) override {
+    // list the choices of actions
+    std::vector<std::unique_ptr<Action>> actions;
+    action_factory_->EnumerateActions(cvc, character_, &actions);
+
+    // choose one according to the policy and store it, along with this agent in
+    // a partial Experience which we will fill out later
+    return policy_->ChooseAction(&actions, cvc, character_);
+  }
+
+  std::unique_ptr<Action> Respond(CVC* cvc, Action* action) override {
+     //TODO: heuristic response TBD
+     return nullptr;
+  }
+
+  // TODO: learn
+  void Learn(CVC* cvc, std::unique_ptr<Experience> experience) override {
+    action_factory_->Learn(cvc, std::move(experience));
+  }
+
+
+ private:
+  SARSACompositeActionFactory* action_factory_;
+  SARSAResponseFactory* response_factory_;
+  ActionPolicy* policy_;
 };
 
 #endif

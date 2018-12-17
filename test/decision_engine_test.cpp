@@ -26,13 +26,17 @@ class RecordingTestAction : public Action {
   TestActionState* tas_;
 };
 
-class RecordingTestActionFactory : public ActionFactory {
+class TestAgent : public Agent {
  public:
-  double EnumerateActions(CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Action>>* actions) override {
-    actions->push_back(std::make_unique<RecordingTestAction>(character, &tas_));
-    enumerate_calls_++;
-    return 0;
+  TestAgent(Character* c) : Agent(c) {}
+
+  std::unique_ptr<Action> ChooseAction(CVC* cvc) override {
+    choose_calls_++;
+    return std::make_unique<RecordingTestAction>(character_, &tas_);
+  }
+
+  std::unique_ptr<Action> Respond(CVC* cvc, Action* action) override {
+    return nullptr;
   }
 
   void Learn(CVC* cvc, std::unique_ptr<Experience> experience) override {
@@ -44,21 +48,9 @@ class RecordingTestActionFactory : public ActionFactory {
     learn_calls_++;
   }
 
-  int enumerate_calls_ = 0;
+  int choose_calls_ = 0;
   int learn_calls_ = 0;
   TestActionState tas_;
-};
-
-class RecordingTestActionPolicy : public ActionPolicy {
- public:
-  std::unique_ptr<Action> ChooseAction(
-       std::vector<std::unique_ptr<Action>>* actions, CVC* cvc,
-       Character* character) {
-    choose_calls_++;
-    return std::move(actions->front());
-  }
-
-  int choose_calls_ = 0;
 };
 
 class DecisionEngineTest : public ::testing::Test {
@@ -72,16 +64,13 @@ class DecisionEngineTest : public ::testing::Test {
   Character c_ = Character(0, 0.0);
   CVC cvc_ = CVC({&c_}, nullptr, random_generator_);
 
-  RecordingTestActionFactory rtaf_;
-  RecordingTestActionPolicy policy_;
-
-  Agent a_ = Agent(&c_, &rtaf_, &policy_);
+  TestAgent a_ = TestAgent(&c_);
 
   std::unique_ptr<DecisionEngine> decision_engine_;
 };
 
 TEST_F(DecisionEngineTest, TestRunOneGameLoop) {
-  //TODO: test guarantees of RunOneGameLoop: actions evaluate, new actions are
+  //test guarantees of RunOneGameLoop: actions evaluate, new actions are
   //chosen and game state has ticked forward
   int start_tick = cvc_.Now();
 
@@ -93,11 +82,11 @@ TEST_F(DecisionEngineTest, TestRunOneGameLoop) {
   decision_engine_->RunOneGameLoop();
 
   EXPECT_EQ(start_tick + 1, cvc_.Now());
-  EXPECT_EQ(0, rtaf_.tas_.effects_);
-  EXPECT_EQ(1, rtaf_.enumerate_calls_);
-  EXPECT_EQ(0, rtaf_.learn_calls_);
+  EXPECT_EQ(0, a_.tas_.effects_);
+  EXPECT_EQ(1, a_.choose_calls_);
+  EXPECT_EQ(0, a_.learn_calls_);
 
-  //TODO: check that new actions have been chosen
+  //check that new actions have been chosen
 
   //run another loop
   //the actions that got chose last time should play out now
@@ -105,8 +94,8 @@ TEST_F(DecisionEngineTest, TestRunOneGameLoop) {
   decision_engine_->RunOneGameLoop();
 
   EXPECT_EQ(start_tick + 2, cvc_.Now());
-  EXPECT_EQ(1, rtaf_.tas_.effects_);
-  EXPECT_EQ(cvc_.Now() - 1, rtaf_.tas_.last_tick_);
-  EXPECT_EQ(2, rtaf_.enumerate_calls_);
-  EXPECT_EQ(1, rtaf_.learn_calls_);
+  EXPECT_EQ(1, a_.tas_.effects_);
+  EXPECT_EQ(cvc_.Now() - 1, a_.tas_.last_tick_);
+  EXPECT_EQ(2, a_.choose_calls_);
+  EXPECT_EQ(1, a_.learn_calls_);
 }

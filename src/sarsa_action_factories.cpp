@@ -9,12 +9,11 @@
 #include "action.h"
 #include "sarsa_action_factories.h"
 
-SARSAActionFactory::SARSAActionFactory(double n, double g,
-                                       std::vector<double> weights,
-                                       Logger* learn_logger)
+SARSALearner::SARSALearner(double n, double g, std::vector<double> weights,
+                           Logger* learn_logger)
     : n_(n), g_(g), weights_(weights), learn_logger_(learn_logger) {}
 
-void SARSAActionFactory::WriteWeights(FILE* weights_file) {
+void SARSALearner::WriteWeights(FILE* weights_file) {
   size_t num_weights = weights_.size();
   fwrite(&num_weights, sizeof(size_t), 1, weights_file);
   for(double w : weights_) {
@@ -22,7 +21,7 @@ void SARSAActionFactory::WriteWeights(FILE* weights_file) {
   }
 }
 
-void SARSAActionFactory::ReadWeights(FILE* weights_file) {
+void SARSALearner::ReadWeights(FILE* weights_file) {
   size_t count;
   int ret = fread(&count, sizeof(size_t), 1, weights_file);
   assert(1 == ret);
@@ -35,9 +34,7 @@ void SARSAActionFactory::ReadWeights(FILE* weights_file) {
   }
 }
 
-void SARSAActionFactory::Learn(CVC* cvc,
-                               std::unique_ptr<Experience> experience) {
-
+void SARSALearner::Learn(CVC* cvc, std::unique_ptr<Experience> experience) {
   Action* action = experience->action_.get();
   Action* next_action = experience->next_action_;
 
@@ -86,7 +83,7 @@ void SARSAActionFactory::Learn(CVC* cvc,
   //assert(action->GetScore() - Score(action->GetFeatureVector()) == d * n_);
 }
 
-double SARSAActionFactory::Score(const std::vector<double>& features) {
+double SARSALearner::Score(const std::vector<double>& features) {
   assert(features.size() == weights_.size());
   double score = 0.0;
   for(size_t i = 0; i < features.size(); i++) {
@@ -95,6 +92,11 @@ double SARSAActionFactory::Score(const std::vector<double>& features) {
   assert(!std::isinf(score));
   return score;
 }
+
+SARSAActionFactory::SARSAActionFactory(double n, double g,
+                                       std::vector<double> weights,
+                                       Logger* learn_logger)
+    : learner_(n, g, weights, learn_logger) {}
 
 std::unique_ptr<SARSATrivialActionFactory> SARSATrivialActionFactory::Create(
     double n, double g, std::mt19937 random_generator, Logger* learn_logger) {
@@ -300,6 +302,8 @@ double SARSACompositeActionFactory::EnumerateActions(
 
 void SARSACompositeActionFactory::Learn(
     CVC* cvc, std::unique_ptr<Experience> experience) {
+  assert(factories_.find(experience->action_->GetActionId()) !=
+         factories_.end());
   //pass learning on to the appropriate child factory
   factories_[experience->action_->GetActionId()]->Learn(cvc,
                                                         std::move(experience));

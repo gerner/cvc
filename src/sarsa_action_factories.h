@@ -4,13 +4,27 @@
 #include <vector>
 #include <unordered_map>
 #include <random>
+#include <memory>
 
 #include "action.h"
-#include "action_factories.h"
 #include "decision_engine.h"
 
 class SARSALearner {
  public:
+  static void ReadWeights(
+      const char* weight_file,
+      std::unordered_map<std::string, SARSALearner*> learners);
+
+  static void WriteWeights(
+      const char* weight_file,
+      std::unordered_map<std::string, SARSALearner*> learners);
+
+  //creates a randomly initialized learner
+  static std::unique_ptr<SARSALearner> Create(double n, double g,
+                                              std::mt19937& random_generator,
+                                              size_t num_features,
+                                              Logger* learn_logger);
+
   SARSALearner(double n, double g, std::vector<double> weights,
                Logger* learn_logger);
   void Learn(CVC* cvc, std::unique_ptr<Experience> experience);
@@ -28,47 +42,66 @@ class SARSALearner {
   Logger* learn_logger_;
 };
 
-class SARSAActionFactory {
+class SARSAActionFactory : public ActionFactory {
  public:
-  SARSAActionFactory(double n, double g, std::vector<double> weights,
-                     Logger* learn_logger);
+  SARSAActionFactory(std::unique_ptr<SARSALearner> learner);
 
-  virtual double EnumerateActions(
-      CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Action>>* actions) = 0;
+  SARSALearner* GetLearner() { return learner_.get(); }
 
-  void Learn(CVC* cvc, std::unique_ptr<Experience> experience) {
-    learner_.Learn(cvc, std::move(experience));
-  }
-
-  double Score(const std::vector<double>& features) {
-    return learner_.Score(features);
-  }
-
-  void WriteWeights(FILE* weights_file) {
-    learner_.WriteWeights(weights_file);
-  }
-  void ReadWeights(FILE* weights_file) {
-    learner_.ReadWeights(weights_file);
-  }
-
- private:
-  SARSALearner learner_;
+ protected:
+  std::unique_ptr<SARSALearner> learner_;
 };
 
-class SARSAResponseFactory {
+class SARSAResponseFactory : public ResponseFactory {
  public:
   virtual double Respond(CVC* cvc, Action* action,
                          std::vector<std::unique_ptr<Action>>* actions) = 0;
+
+  SARSALearner* GetLearner() { return learner_.get(); }
+
+ protected:
+  std::unique_ptr<SARSALearner> learner_;
 };
+
+//TODO: need to sort out exactly what abstraction the agent needs
+// a learning agent
+// configured with:
+//  an action factory which can list (scored) candidate actions given current
+//  game state
+//  a respponse factory which can list (scored) candidate response actions given
+//  current game state and some proposal action
+//  a policy for choosing a single candidate action (or response) from a set of
+//  candidates
+//  a set of learners for different action experiences
+class SARSAAgent : public Agent {
+ public:
+  SARSAAgent(Character* character, ActionFactory* action_factory,
+             ResponseFactory* response_factory, ActionPolicy* policy,
+             std::unordered_map<std::string, SARSALearner*> learners)
+      : Agent(character),
+        action_factory_(action_factory),
+        response_factory_(response_factory),
+        policy_(policy),
+        learners_(learners) {}
+
+  std::unique_ptr<Action> ChooseAction(CVC* cvc) override;
+  std::unique_ptr<Action> Respond(CVC* cvc, Action* action) override;
+  void Learn(CVC* cvc, std::unique_ptr<Experience> experience) override;
+
+ private:
+  ActionFactory* action_factory_;
+  ResponseFactory* response_factory_;
+  ActionPolicy* policy_;
+  std::unordered_map<std::string, SARSALearner*> learners_;
+};
+
 
 class SARSAGiveActionFactory : public SARSAActionFactory {
  public:
   static std::unique_ptr<SARSAGiveActionFactory> Create(
-      double n, double g, std::mt19937 random_generator, Logger* learn_logger);
+      double n, double g, std::mt19937& random_generator, Logger* learn_logger);
 
-  SARSAGiveActionFactory(double n, double g, std::vector<double> weights,
-                         Logger* learn_logger);
+  SARSAGiveActionFactory(std::unique_ptr<SARSALearner> learner);
 
   double EnumerateActions(
       CVC* cvc, Character* character,
@@ -78,10 +111,9 @@ class SARSAGiveActionFactory : public SARSAActionFactory {
 class SARSAAskActionFactory : public SARSAActionFactory {
  public:
   static std::unique_ptr<SARSAAskActionFactory> Create(
-      double n, double g, std::mt19937 random_generator, Logger* learn_logger);
+      double n, double g, std::mt19937& random_generator, Logger* learn_logger);
 
-  SARSAAskActionFactory(double n, double g, std::vector<double> weights,
-                        Logger* learn_logger);
+  SARSAAskActionFactory(std::unique_ptr<SARSALearner> learner);
 
   double EnumerateActions(
       CVC* cvc, Character* character,
@@ -91,10 +123,9 @@ class SARSAAskActionFactory : public SARSAActionFactory {
 class SARSAWorkActionFactory : public SARSAActionFactory {
  public:
   static std::unique_ptr<SARSAWorkActionFactory> Create(
-      double n, double g, std::mt19937 random_generator, Logger* learn_logger);
+      double n, double g, std::mt19937& random_generator, Logger* learn_logger);
 
-  SARSAWorkActionFactory(double n, double g, std::vector<double> weights,
-                         Logger* learn_logger);
+  SARSAWorkActionFactory(std::unique_ptr<SARSALearner> learner);
 
   double EnumerateActions(
       CVC* cvc, Character* character,
@@ -104,17 +135,16 @@ class SARSAWorkActionFactory : public SARSAActionFactory {
 class SARSATrivialActionFactory : public SARSAActionFactory {
  public:
   static std::unique_ptr<SARSATrivialActionFactory> Create(
-      double n, double g, std::mt19937 random_generator, Logger* learn_logger);
+      double n, double g, std::mt19937& random_generator, Logger* learn_logger);
 
-  SARSATrivialActionFactory(double n, double g, std::vector<double> weights,
-                            Logger* learn_logger);
+  SARSATrivialActionFactory(std::unique_ptr<SARSALearner> learner);
 
   double EnumerateActions(
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Action>>* actions) override;
 };
 
-class SARSACompositeActionFactory {
+class SARSACompositeActionFactory : public ActionFactory {
  public:
   SARSACompositeActionFactory(
       std::unordered_map<std::string, SARSAActionFactory*> factories,
@@ -124,14 +154,8 @@ class SARSACompositeActionFactory {
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Action>>* actions);
 
-  void Learn(CVC* cvc, std::unique_ptr<Experience> experience);
-
-  void ReadWeights();
-  void WriteWeights();
-
  private:
   std::unordered_map<std::string, SARSAActionFactory*> factories_;
-  const char* weight_file_;
 };
 
 class EpsilonGreedyPolicy : public ActionPolicy {
@@ -144,42 +168,6 @@ class EpsilonGreedyPolicy : public ActionPolicy {
 
  private:
   double epsilon_;
-};
-
-class SARSAAgent : public Agent {
- public:
-  SARSAAgent(Character* character, SARSACompositeActionFactory* action_factory,
-             SARSAResponseFactory* response_factory, ActionPolicy* policy)
-      : Agent(character),
-        action_factory_(action_factory),
-        response_factory_(response_factory),
-        policy_(policy) {}
-
-  std::unique_ptr<Action> ChooseAction(CVC* cvc) override {
-    // list the choices of actions
-    std::vector<std::unique_ptr<Action>> actions;
-    action_factory_->EnumerateActions(cvc, character_, &actions);
-
-    // choose one according to the policy and store it, along with this agent in
-    // a partial Experience which we will fill out later
-    return policy_->ChooseAction(&actions, cvc, character_);
-  }
-
-  std::unique_ptr<Action> Respond(CVC* cvc, Action* action) override {
-     //TODO: heuristic response TBD
-     return nullptr;
-  }
-
-  // TODO: learn
-  void Learn(CVC* cvc, std::unique_ptr<Experience> experience) override {
-    action_factory_->Learn(cvc, std::move(experience));
-  }
-
-
- private:
-  SARSACompositeActionFactory* action_factory_;
-  SARSAResponseFactory* response_factory_;
-  ActionPolicy* policy_;
 };
 
 #endif

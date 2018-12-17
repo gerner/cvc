@@ -4,14 +4,11 @@
 #include <limits>
 #include <cmath>
 #include <cstring>
+#include <memory>
 
 #include "core.h"
 #include "action.h"
 #include "sarsa_action_factories.h"
-
-SARSALearner::SARSALearner(double n, double g, std::vector<double> weights,
-                           Logger* learn_logger)
-    : n_(n), g_(g), weights_(weights), learn_logger_(learn_logger) {}
 
 void SARSALearner::WriteWeights(FILE* weights_file) {
   size_t num_weights = weights_.size();
@@ -34,9 +31,30 @@ void SARSALearner::ReadWeights(FILE* weights_file) {
   }
 }
 
+std::unique_ptr<SARSALearner> SARSALearner::Create(double n, double g,
+                                                   std::mt19937& random_generator,
+                                                   size_t num_features,
+                                                   Logger* learn_logger) {
+  std::vector<double> weights;
+
+  std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
+  for (size_t i = 0; i < 2; i++) {
+    weights.push_back(weight_dist(random_generator));
+  }
+
+  return std::make_unique<SARSALearner>(n, g, weights, learn_logger);
+}
+
+SARSALearner::SARSALearner(double n, double g, std::vector<double> weights,
+                           Logger* learn_logger)
+    : n_(n), g_(g), weights_(weights), learn_logger_(learn_logger) {}
+
 void SARSALearner::Learn(CVC* cvc, std::unique_ptr<Experience> experience) {
   Action* action = experience->action_.get();
   Action* next_action = experience->next_action_;
+
+  assert(action);
+  assert(next_action);
 
   //SARSA-FA:
   //Q(s, a) = r + g * Q(s', a')
@@ -84,6 +102,9 @@ void SARSALearner::Learn(CVC* cvc, std::unique_ptr<Experience> experience) {
 }
 
 double SARSALearner::Score(const std::vector<double>& features) {
+  //first feature had beter be bias term
+  assert(features[0] == 1.0);
+
   assert(features.size() == weights_.size());
   double score = 0.0;
   for(size_t i = 0; i < features.size(); i++) {
@@ -93,27 +114,40 @@ double SARSALearner::Score(const std::vector<double>& features) {
   return score;
 }
 
-SARSAActionFactory::SARSAActionFactory(double n, double g,
-                                       std::vector<double> weights,
-                                       Logger* learn_logger)
-    : learner_(n, g, weights, learn_logger) {}
+SARSAActionFactory::SARSAActionFactory(std::unique_ptr<SARSALearner> learner)
+    : learner_(std::move(learner)) {}
 
 std::unique_ptr<SARSATrivialActionFactory> SARSATrivialActionFactory::Create(
-    double n, double g, std::mt19937 random_generator, Logger* learn_logger) {
-  std::vector<double> weights;
-
-  std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
-  for (size_t i = 0; i < 2; i++) {
-    weights.push_back(weight_dist(random_generator));
-  }
-
-  return std::make_unique<SARSATrivialActionFactory>(n, g, weights,
-                                                     learn_logger);
+    double n, double g, std::mt19937& random_generator, Logger* learn_logger) {
+  return std::make_unique<SARSATrivialActionFactory>(
+      SARSALearner::Create(n, g, random_generator, 2, learn_logger));
 }
 
-SARSATrivialActionFactory::SARSATrivialActionFactory(
-    double n, double g, std::vector<double> weights, Logger* learn_logger)
-    : SARSAActionFactory(n, g, weights, learn_logger) {}
+std::unique_ptr<Action> SARSAAgent::ChooseAction(CVC* cvc) {
+  // list the choices of actions
+  std::vector<std::unique_ptr<Action>> actions;
+  action_factory_->EnumerateActions(cvc, character_, &actions);
+
+  // choose one according to the policy and store it, along with this agent in
+  // a partial Experience which we will fill out later
+  return policy_->ChooseAction(&actions, cvc, character_);
+}
+
+std::unique_ptr<Action> SARSAAgent::Respond(CVC* cvc, Action* action) {
+  // TODO: response TBD
+  return std::make_unique<TrivialAction>(character_, 0.0,
+                                         std::vector<double>({}));
+}
+
+void SARSAAgent::Learn(CVC* cvc,
+                       std::unique_ptr<Experience> experience) {
+  assert(learners_.find(experience->action_->GetActionId()) != learners_.end());
+  learners_[experience->action_->GetActionId()]->Learn(cvc,
+                                                       std::move(experience));
+}
+
+SARSATrivialActionFactory::SARSATrivialActionFactory(std::unique_ptr<SARSALearner> learner)
+    : SARSAActionFactory(std::move(learner)) {}
 
 double SARSATrivialActionFactory::EnumerateActions(
     CVC* cvc, Character* character,
@@ -126,28 +160,20 @@ double SARSATrivialActionFactory::EnumerateActions(
        cvc->GetOpinionOfStats(character->GetId()).mean_,
        cvc->GetOpinionOfStats(character->GetId()).stdev_});*/
   std::vector<double> features({1.0, log(character->GetMoney())});
-  double score = Score(features);
+  double score = learner_->Score(features);
   actions->push_back(
       std::make_unique<TrivialAction>(character, score, features));
   return score;
 }
 
 std::unique_ptr<SARSAGiveActionFactory> SARSAGiveActionFactory::Create(
-    double n, double g, std::mt19937 random_generator, Logger* learn_logger) {
-  std::vector<double> weights;
-
-  std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
-  for (size_t i = 0; i < 2; i++) {
-    weights.push_back(weight_dist(random_generator));
-  }
-
-  return std::make_unique<SARSAGiveActionFactory>(n, g, weights, learn_logger);
+    double n, double g, std::mt19937& random_generator, Logger* learn_logger) {
+  return std::make_unique<SARSAGiveActionFactory>(
+      SARSALearner::Create(n, g, random_generator, 2, learn_logger));
 }
 
-SARSAGiveActionFactory::SARSAGiveActionFactory(double n, double g,
-                                               std::vector<double> weights,
-                                               Logger* learn_logger)
-    : SARSAActionFactory(n, g, weights, learn_logger) {}
+SARSAGiveActionFactory::SARSAGiveActionFactory(std::unique_ptr<SARSALearner> learner)
+    : SARSAActionFactory(std::move(learner)) {}
 
 double SARSAGiveActionFactory::EnumerateActions(
     CVC* cvc, Character* character,
@@ -173,7 +199,7 @@ double SARSAGiveActionFactory::EnumerateActions(
            character->GetOpinionOf(target), target->GetOpinionOf(character),
            target->GetMoney()});*/
       std::vector<double> features({1.0, target->GetOpinionOf(character)});
-      double score = Score(features);
+      double score = learner_->Score(features);
       if(score > best_score) {
         best_score = score;
         best_features = features;
@@ -192,21 +218,13 @@ double SARSAGiveActionFactory::EnumerateActions(
 }
 
 std::unique_ptr<SARSAAskActionFactory> SARSAAskActionFactory::Create(
-    double n, double g, std::mt19937 random_generator, Logger* learn_logger) {
-  std::vector<double> weights;
-
-  std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
-  for (size_t i = 0; i < 2; i++) {
-    weights.push_back(weight_dist(random_generator));
-  }
-
-  return std::make_unique<SARSAAskActionFactory>(n, g, weights, learn_logger);
+    double n, double g, std::mt19937& random_generator, Logger* learn_logger) {
+  return std::make_unique<SARSAAskActionFactory>(
+      SARSALearner::Create(n, g, random_generator, 2, learn_logger));
 }
 
-SARSAAskActionFactory::SARSAAskActionFactory(double n, double g,
-                                             std::vector<double> weights,
-                                             Logger* learn_logger)
-    : SARSAActionFactory(n, g, weights, learn_logger) {}
+SARSAAskActionFactory::SARSAAskActionFactory(std::unique_ptr<SARSALearner> learner)
+    : SARSAActionFactory(std::move(learner)) {}
 
 double SARSAAskActionFactory::EnumerateActions(
     CVC* cvc, Character* character,
@@ -236,7 +254,7 @@ double SARSAAskActionFactory::EnumerateActions(
          character->GetOpinionOf(target), target->GetOpinionOf(character),
          target->GetMoney()});*/
     std::vector<double> features({1.0, target->GetOpinionOf(character)});
-    double score = Score(features);
+    double score = learner_->Score(features);
     if(score > best_score) {
       best_score = score;
       best_features = features;
@@ -251,22 +269,15 @@ double SARSAAskActionFactory::EnumerateActions(
   }
   return 0.0;
 }
+
 std::unique_ptr<SARSAWorkActionFactory> SARSAWorkActionFactory::Create(
-    double n, double g, std::mt19937 random_generator, Logger* learn_logger) {
-  std::vector<double> weights;
-
-  std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
-  for (size_t i = 0; i < 2; i++) {
-    weights.push_back(weight_dist(random_generator));
-  }
-
-  return std::make_unique<SARSAWorkActionFactory>(n, g, weights, learn_logger);
+    double n, double g, std::mt19937& random_generator, Logger* learn_logger) {
+  return std::make_unique<SARSAWorkActionFactory>(
+      SARSALearner::Create(n, g, random_generator, 2, learn_logger));
 }
 
-SARSAWorkActionFactory::SARSAWorkActionFactory(double n, double g,
-                                               std::vector<double> weights,
-                                               Logger* learn_logger)
-    : SARSAActionFactory(n, g, weights, learn_logger) {}
+SARSAWorkActionFactory::SARSAWorkActionFactory(std::unique_ptr<SARSALearner> learner)
+    : SARSAActionFactory(std::move(learner)) {}
 
 double SARSAWorkActionFactory::EnumerateActions(
     CVC* cvc, Character* character,
@@ -279,7 +290,7 @@ double SARSAWorkActionFactory::EnumerateActions(
        cvc->GetOpinionOfStats(character->GetId()).mean_,
        cvc->GetOpinionOfStats(character->GetId()).stdev_});*/
   std::vector<double> features({1.0, log(character->GetMoney())});
-  double score = Score(features);
+  double score = learner_->Score(features);
   actions->push_back(
       std::make_unique<WorkAction>(character, score, features));
   return score;
@@ -288,7 +299,7 @@ double SARSAWorkActionFactory::EnumerateActions(
 SARSACompositeActionFactory::SARSACompositeActionFactory(
     std::unordered_map<std::string, SARSAActionFactory*> factories,
     const char* weight_file)
-    : factories_(factories), weight_file_(weight_file) {}
+    : factories_(factories) {}
 
 double SARSACompositeActionFactory::EnumerateActions(
     CVC* cvc, Character* character,
@@ -300,17 +311,10 @@ double SARSACompositeActionFactory::EnumerateActions(
   return score;
 }
 
-void SARSACompositeActionFactory::Learn(
-    CVC* cvc, std::unique_ptr<Experience> experience) {
-  assert(factories_.find(experience->action_->GetActionId()) !=
-         factories_.end());
-  //pass learning on to the appropriate child factory
-  factories_[experience->action_->GetActionId()]->Learn(cvc,
-                                                        std::move(experience));
-}
-
-void SARSACompositeActionFactory::ReadWeights() {
-  FILE* weights = fopen(weight_file_, "r");
+void SARSALearner::ReadWeights(
+    const char* weight_file,
+    std::unordered_map<std::string, SARSALearner*> learners) {
+  FILE* weights = fopen(weight_file, "r");
 
   if(!weights) {
     //if the file doesn't exist, just leave existing weights
@@ -331,21 +335,23 @@ void SARSACompositeActionFactory::ReadWeights() {
     ret = fread(factory_name, sizeof(char), name_length, weights);
     assert((size_t)ret == name_length);
 
-    assert(factories_.find(factory_name) != factories_.end());
-    factories_[factory_name]->ReadWeights(weights);
+    assert(learners.find(factory_name) != learners.end());
+    learners[factory_name]->ReadWeights(weights);
   }
   fclose(weights);
 }
 
-void SARSACompositeActionFactory::WriteWeights() {
-  FILE* weights = fopen(weight_file_, "w");
+void SARSALearner::WriteWeights(
+    const char* weight_file,
+    std::unordered_map<std::string, SARSALearner*> learners) {
+  FILE* weights = fopen(weight_file, "w");
   assert(weights);
 
-  size_t num_factories = factories_.size();
+  size_t num_factories = learners.size();
   int ret = fwrite(&num_factories, sizeof(size_t), 1, weights);
   assert(ret);
 
-  for(const auto& factory : factories_) {
+  for(const auto& factory : learners) {
     size_t name_length = strlen(factory.first.c_str());
     ret = fwrite(&name_length, sizeof(size_t), 1, weights);
     assert(ret > 0);

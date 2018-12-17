@@ -29,6 +29,25 @@ struct Experience {
   Action* next_action_;
 };
 
+// Creates and scores action instances for a specific type of action
+class ActionFactory {
+ public:
+  virtual ~ActionFactory() {}
+
+  virtual double EnumerateActions(
+      CVC* cvc, Character* character,
+      std::vector<std::unique_ptr<Action>>* actions) = 0;
+
+};
+
+class ResponseFactory {
+ public:
+  virtual ~ResponseFactory() {}
+  virtual double Respond(
+      CVC* cvc, Character* character, Action* action,
+      std::vector<std::unique_ptr<Action>>* actions) = 0;
+};
+
 class ActionPolicy {
   public:
    virtual std::unique_ptr<Action> ChooseAction(
@@ -46,13 +65,6 @@ class Agent {
  public:
   Agent(Character* character) : character_(character) {}
 
-  /*Agent(Character* character, ActionFactory* action_factory,
-        ResponseFactory* response_factory, ActionPolicy* policy)
-      : character_(character),
-        action_factory_(action_factory),
-        response_factory_(response_factory),
-        policy_(policy) {}*/
-
   virtual ~Agent() {}
 
   // lifecycle:
@@ -63,12 +75,9 @@ class Agent {
 
   Character* GetCharacter() const { return character_; }
 
- //protected:
+ protected:
 
   Character* character_;
-  /*ActionFactory* action_factory_;
-  ResponseFactory* response_factory_;
-  ActionPolicy* policy_;*/
 };
 
 struct ExperienceByAgent {

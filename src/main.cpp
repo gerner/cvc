@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
     agents.push_back(a.back().get());
   }
 
-  double e = 0.2;
+  double e = 0.1;
   double n = 0.0001;
   double g = 1.0;
 
@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
       SARSAAskResponseFactory::Create(n, g, random_generator,
                                       &ask_response_learn_logger);*/
 
-  scf.ReadWeights();
+  //scf.ReadWeights();
   EpsilonGreedyPolicy egp(e);
   int num_non_learning_agents = agents.size();
   for(int i=0; i<1; i++) {
@@ -86,7 +86,13 @@ int main(int argc, char** argv) {
     characters.back()->traits_[kBackground] = background_dist(random_generator);
     characters.back()->traits_[kLanguage] = language_dist(random_generator);
 
-    a.push_back(std::make_unique<SARSAAgent>(characters.back(), &scf, nullptr, &egp));
+    a.push_back(std::make_unique<SARSAAgent>(
+        characters.back(), &scf, nullptr, &egp,
+        std::unordered_map<std::string, SARSALearner*>(
+            {{"GiveAction", sgaf->GetLearner()},
+             {"AskAction", saaf->GetLearner()},
+             {"WorkAction", swaf->GetLearner()},
+             {"TrivialAction", staf->GetLearner()}})));
     agents.push_back(a.back().get());
   }
 
@@ -109,7 +115,7 @@ int main(int argc, char** argv) {
   }
   cvc.LogState();
 
-  scf.WriteWeights();
+  //scf.WriteWeights();
 
   fclose(action_log);
   fclose(learn_log);

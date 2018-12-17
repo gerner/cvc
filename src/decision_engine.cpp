@@ -23,7 +23,7 @@ DecisionEngine::DecisionEngine(std::vector<Agent*> agents,
                                CVC* cvc, FILE* action_log)
     : agents_(agents), cvc_(cvc), action_log_(action_log) {
   for (Agent* agent : agents_) {
-    agent_lookup_[agent->character_] = agent;
+    agent_lookup_[agent->GetCharacter()] = agent;
   }
 }
 
@@ -78,14 +78,16 @@ void DecisionEngine::EvaluateQueuedActions() {
       //TODO: agents should always be able to explicitly respond
       queued_actions_.push_back(std::make_unique<Experience>(
           responding_agent, responding_agent->Respond(cvc_, action), nullptr));
-    }
 
-    // spit out the action vector:
-    LogAction(action);
+      assert(queued_actions_.back()->action_);
+    }
 
     // let the action's effect play out
     //  this includes any character interaction
     action->TakeEffect(cvc_);
+
+    // spit out the action vector:
+    LogAction(action);
 
     // stick this (still partial) experience in the list of experiences for this
     // tick
@@ -158,8 +160,8 @@ void DecisionEngine::LogAction(const Action* action) {
     std::copy(features.begin(), features.end(),
               std::ostream_iterator<double>(s, "\t"));
 
-    fprintf(action_log_, "%d\t%d\t%f\t%s\t%f\t%s\n", cvc_->Now(),
+    fprintf(action_log_, "%d\t%d\t%f\t%s\t%f\t%f\t%s\n", cvc_->Now(),
             action->GetActor()->GetId(), action->GetActor()->GetMoney(),
-            action->GetActionId(), action->GetScore(), s.str().c_str());
+            action->GetActionId(), action->GetReward(), action->GetScore(), s.str().c_str());
   }
 }

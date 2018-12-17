@@ -8,25 +8,6 @@
 #include "core.h"
 #include "decision_engine.h"
 
-// Creates and scores action instances for a specific type of action
-class ActionFactory {
- public:
-  virtual ~ActionFactory() {}
-
-  virtual double EnumerateActions(
-      CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Action>>* actions) = 0;
-
-};
-
-class ResponseFactory {
- public:
-  virtual ~ResponseFactory() {}
-  virtual double EnumerateResponses(
-      CVC* cvc, Character* character, Action* action,
-      std::vector<std::unique_ptr<Action>>* actions) = 0;
-};
-
 class HeuristicAgent : public Agent {
  public:
   HeuristicAgent(Character* character, ActionFactory* action_factory,
@@ -48,7 +29,8 @@ class HeuristicAgent : public Agent {
 
   std::unique_ptr<Action> Respond(CVC* cvc, Action* action) override {
      //TODO: heuristic response TBD
-     return nullptr;
+     return std::make_unique<TrivialAction>(character_, 0.0,
+                                            std::vector<double>({}));
   }
 
   // no learning on the heuristic agent
@@ -76,7 +58,7 @@ class AskActionFactory : public ActionFactory {
 
 class AskResponseFactory : public ResponseFactory {
  public:
-  double EnumerateResponses(CVC* cvc, Character* character, Action* action,
+  double Respond(CVC* cvc, Character* character, Action* action,
                  std::vector<std::unique_ptr<Action>>* responses) override;
 };
 

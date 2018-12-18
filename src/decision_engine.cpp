@@ -11,6 +11,12 @@
 #include "decision_engine.h"
 #include "action.h"
 
+std::unique_ptr<Experience> Experience::WrapAction(
+    std::unique_ptr<Action> action) {
+  return std::make_unique<Experience>(nullptr, nullptr, std::move(action),
+                                      nullptr);
+}
+
 std::unique_ptr<DecisionEngine> DecisionEngine::Create(
     std::vector<Agent*> agents, CVC* cvc, FILE* action_log) {
   std::unique_ptr<DecisionEngine> d =
@@ -63,34 +69,39 @@ void DecisionEngine::EvaluateQueuedActions() {
       // if it's not valid any more, just skip it
       cvc_->invalid_actions_++;
       LogInvalidAction(action);
-      continue;
+    } else {
+
+      // handle actions that require a response
+      // if a proposal, choose how the target responds
+      if (action->RequiresResponse()) {
+        assert(action->GetTarget());
+        assert(agent_lookup_.find(action->GetTarget()) != agent_lookup_.end());
+        Agent* responding_agent = agent_lookup_[action->GetTarget()];
+
+        std::vector<std::unique_ptr<Action>> responses;
+
+        //TODO: agents should always be able to explicitly respond
+        std::unique_ptr<Experience> e = responding_agent->Respond(cvc_, action);
+        assert(e);
+        e->agent_ = responding_agent;
+        queued_actions_.push_back(std::move(e));
+
+        assert(queued_actions_.back()->action_);
+      }
+
+      // let the action's effect play out
+      //  this includes any character interaction
+      action->TakeEffect(cvc_);
+
+      // spit out the action vector:
+      LogAction(action);
     }
 
-    // handle actions that require a response
-    // if a proposal, choose how the target responds
-    if (action->RequiresResponse()) {
-      assert(action->GetTarget());
-      assert(agent_lookup_.find(action->GetTarget()) != agent_lookup_.end());
-      Agent* responding_agent = agent_lookup_[action->GetTarget()];
+    // whether the action is valid or not, we need to save the experience to
+    // learn from, to maintain the contract with the Agent
 
-      std::vector<std::unique_ptr<Action>> responses;
-
-      //TODO: agents should always be able to explicitly respond
-      queued_actions_.push_back(std::make_unique<Experience>(
-          responding_agent, responding_agent->Respond(cvc_, action), nullptr));
-
-      assert(queued_actions_.back()->action_);
-    }
-
-    // let the action's effect play out
-    //  this includes any character interaction
-    action->TakeEffect(cvc_);
-
-    // spit out the action vector:
-    LogAction(action);
-
-    // stick this (still partial) experience in the list of experiences for this
-    // tick
+    // stick this (still partial) experience in the list of experiences for
+    // this tick
     experiences_.push_back(std::move(experience));
 
     // we keep experiences for this turn in a heap cause we want these sorted
@@ -111,7 +122,9 @@ void DecisionEngine::EvaluateQueuedActions() {
 void DecisionEngine::ChooseActions() {
   // go through list of all characters
   for (Agent* agent : agents_) {
-    queued_actions_.push_back(std::make_unique<Experience>(agent, agent->ChooseAction(cvc_), nullptr));
+    std::unique_ptr<Experience> e = agent->ChooseAction(cvc_);
+    e->agent_ = agent;
+    queued_actions_.push_back(std::move(e));
 
     auto p = std::equal_range(experiences_.begin(), experiences_.end(),
                               agent, ExperienceByAgent());

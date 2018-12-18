@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include <list>
+#include <functional>
 
 #include "core.h"
 #include "action.h"
@@ -11,10 +12,18 @@
 class Agent;
 
 struct Experience {
-  Experience(Agent* agent, std::unique_ptr<Action> action, Action* next_action)
-      : agent_(agent), action_(std::move(action)), next_action_(next_action) {}
+  static std::unique_ptr<Experience> WrapAction(std::unique_ptr<Action> action);
+
+  Experience(Agent* agent, void* data,
+             std::unique_ptr<Action> action, Action* next_action)
+      : agent_(agent),
+        data_(data),
+        action_(std::move(action)),
+        next_action_(next_action) {}
 
   Agent* agent_;
+  //data the agent can assoicate with this experience for future reference
+  void* data_;
 
   //s, a, r, s', a'
   //need:
@@ -36,7 +45,7 @@ class ActionFactory {
 
   virtual double EnumerateActions(
       CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Action>>* actions) = 0;
+      std::vector<std::unique_ptr<Experience>>* actions) = 0;
 
 };
 
@@ -45,13 +54,13 @@ class ResponseFactory {
   virtual ~ResponseFactory() {}
   virtual double Respond(
       CVC* cvc, Character* character, Action* action,
-      std::vector<std::unique_ptr<Action>>* actions) = 0;
+      std::vector<std::unique_ptr<Experience>>* actions) = 0;
 };
 
 class ActionPolicy {
   public:
-   virtual std::unique_ptr<Action> ChooseAction(
-       std::vector<std::unique_ptr<Action>>* actions, CVC* cvc,
+   virtual std::unique_ptr<Experience> ChooseAction(
+       std::vector<std::unique_ptr<Experience>>* actions, CVC* cvc,
        Character* character) = 0;
 };
 
@@ -67,10 +76,14 @@ class Agent {
 
   virtual ~Agent() {}
 
-  // lifecycle:
-  // ChooseAction/Respond -> Action -> action plays out -> Experience -> Learn
-  virtual std::unique_ptr<Action> ChooseAction(CVC* cvc) = 0;
-  virtual std::unique_ptr<Action> Respond(CVC* cvc, Action* action) = 0;
+  // contract:
+  // both ChooseAction and Respond create an action
+  // at some point in the future we'll get a callback to learn from the
+  // experience of that action playing out
+  // after the Learn call, the game no longer needs the experience, so it's up
+  // to us to manage it. this is true for the contained action as well.
+  virtual std::unique_ptr<Experience> ChooseAction(CVC* cvc) = 0;
+  virtual std::unique_ptr<Experience> Respond(CVC* cvc, Action* action) = 0;
   virtual void Learn(CVC* cvc, std::unique_ptr<Experience> experience) = 0;
 
   Character* GetCharacter() const { return character_; }

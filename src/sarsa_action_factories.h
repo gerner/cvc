@@ -27,7 +27,13 @@ class SARSALearner {
 
   SARSALearner(double n, double g, std::vector<double> weights,
                Logger* learn_logger);
+
   void Learn(CVC* cvc, std::unique_ptr<Experience> experience);
+
+  std::unique_ptr<Experience> WrapAction(CVC* cvc, std::unique_ptr<Action> action) {
+    return std::make_unique<Experience>(nullptr, this, std::move(action),
+                                        nullptr);
+  }
 
   void WriteWeights(FILE* weights_file);
   void ReadWeights(FILE* weights_file);
@@ -84,8 +90,8 @@ class SARSAAgent : public Agent {
         policy_(policy),
         learners_(learners) {}
 
-  std::unique_ptr<Action> ChooseAction(CVC* cvc) override;
-  std::unique_ptr<Action> Respond(CVC* cvc, Action* action) override;
+  std::unique_ptr<Experience> ChooseAction(CVC* cvc) override;
+  std::unique_ptr<Experience> Respond(CVC* cvc, Action* action) override;
   void Learn(CVC* cvc, std::unique_ptr<Experience> experience) override;
 
  private:
@@ -105,7 +111,7 @@ class SARSAGiveActionFactory : public SARSAActionFactory {
 
   double EnumerateActions(
       CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Action>>* actions) override;
+      std::vector<std::unique_ptr<Experience>>* actions) override;
 };
 
 class SARSAAskActionFactory : public SARSAActionFactory {
@@ -117,7 +123,7 @@ class SARSAAskActionFactory : public SARSAActionFactory {
 
   double EnumerateActions(
       CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Action>>* actions) override;
+      std::vector<std::unique_ptr<Experience>>* actions) override;
 };
 
 class SARSAWorkActionFactory : public SARSAActionFactory {
@@ -129,7 +135,7 @@ class SARSAWorkActionFactory : public SARSAActionFactory {
 
   double EnumerateActions(
       CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Action>>* actions) override;
+      std::vector<std::unique_ptr<Experience>>* actions) override;
 };
 
 class SARSATrivialActionFactory : public SARSAActionFactory {
@@ -141,7 +147,7 @@ class SARSATrivialActionFactory : public SARSAActionFactory {
 
   double EnumerateActions(
       CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Action>>* actions) override;
+      std::vector<std::unique_ptr<Experience>>* actions) override;
 };
 
 class SARSACompositeActionFactory : public ActionFactory {
@@ -152,7 +158,7 @@ class SARSACompositeActionFactory : public ActionFactory {
 
   double EnumerateActions(
       CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Action>>* actions);
+      std::vector<std::unique_ptr<Experience>>* actions);
 
  private:
   std::unordered_map<std::string, SARSAActionFactory*> factories_;
@@ -162,8 +168,8 @@ class EpsilonGreedyPolicy : public ActionPolicy {
  public:
   EpsilonGreedyPolicy(double epsilon) : epsilon_(epsilon){};
 
-  std::unique_ptr<Action> ChooseAction(
-      std::vector<std::unique_ptr<Action>>* actions, CVC* cvc,
+  std::unique_ptr<Experience> ChooseAction(
+      std::vector<std::unique_ptr<Experience>>* actions, CVC* cvc,
       Character* character) override;
 
  private:

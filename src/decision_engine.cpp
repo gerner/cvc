@@ -11,12 +11,6 @@
 #include "decision_engine.h"
 #include "action.h"
 
-std::unique_ptr<Experience> Experience::WrapAction(
-    std::unique_ptr<Action> action) {
-  return std::make_unique<Experience>(nullptr, nullptr, std::move(action),
-                                      nullptr);
-}
-
 std::unique_ptr<DecisionEngine> DecisionEngine::Create(
     std::vector<Agent*> agents, CVC* cvc, FILE* action_log) {
   std::unique_ptr<DecisionEngine> d =
@@ -34,6 +28,12 @@ DecisionEngine::DecisionEngine(std::vector<Agent*> agents,
 }
 
 void DecisionEngine::RunOneGameLoop() {
+  // for each agent:
+  //    choose what to do
+  //    play it out, including proposals, responses, etc.
+  //    let the agent know the tick as progressed (and it can do whatever it
+  //    wants)
+
   // move the game forward by one tick
   // we'll let agents play out actions, the game state will update agents will
   // choose new actions.
@@ -56,13 +56,8 @@ void DecisionEngine::RunOneGameLoop() {
 }
 
 void DecisionEngine::EvaluateQueuedActions() {
-  //experiences must be empty before we begin to evaluate actions
-  assert(0 == experiences_.size());
-
   // go through list of all the queued actions
-  for (auto& experience : queued_actions_) {
-
-    Action* action = experience->action_.get();
+  for (auto& action : queued_actions_) {
 
     // ensure the action is still valid in the current state
     if (!action->IsValid(cvc_)) {
@@ -81,12 +76,9 @@ void DecisionEngine::EvaluateQueuedActions() {
         std::vector<std::unique_ptr<Action>> responses;
 
         //TODO: agents should always be able to explicitly respond
-        std::unique_ptr<Experience> e = responding_agent->Respond(cvc_, action);
-        assert(e);
-        e->agent_ = responding_agent;
-        queued_actions_.push_back(std::move(e));
-
-        assert(queued_actions_.back()->action_);
+        Action* response = responding_agent->Respond(cvc_, action);
+        assert(response);
+        queued_actions_.push_back(response);
       }
 
       // let the action's effect play out
@@ -100,19 +92,9 @@ void DecisionEngine::EvaluateQueuedActions() {
     // whether the action is valid or not, we need to save the experience to
     // learn from, to maintain the contract with the Agent
 
-    // stick this (still partial) experience in the list of experiences for
-    // this tick
-    experiences_.push_back(std::move(experience));
-
-    // we keep experiences for this turn in a heap cause we want these sorted
-    std::push_heap(experiences_.begin(), experiences_.end(),
-                   ExperienceByAgent());
   }
   //actions evaluated, so dump the list
   queued_actions_.clear();
-
-  //other folks expect experiences to be sorted by agent
-  std::sort_heap(experiences_.begin(), experiences_.end(), ExperienceByAgent());
 
   if (action_log_) {
     fflush(action_log_);
@@ -122,29 +104,15 @@ void DecisionEngine::EvaluateQueuedActions() {
 void DecisionEngine::ChooseActions() {
   // go through list of all characters
   for (Agent* agent : agents_) {
-    std::unique_ptr<Experience> e = agent->ChooseAction(cvc_);
-    e->agent_ = agent;
-    queued_actions_.push_back(std::move(e));
-
-    auto p = std::equal_range(experiences_.begin(), experiences_.end(),
-                              agent, ExperienceByAgent());
-    for(auto i = p.first; i != p.second; i++) {
-      i->get()->next_action_ = queued_actions_.back()->action_.get();
-    }
+    Action* a = agent->ChooseAction(cvc_);
+    queued_actions_.push_back(a);
   }
 }
 
 void DecisionEngine::Learn() {
-  for (auto& experience : experiences_) {
-    assert(experience->action_);
-    assert(experience->next_action_);
-
-    //let the agent take ownership of this experience
-    experience->agent_->Learn(cvc_, std::move(experience));
+  for (Agent* agent : agents_) {
+    agent->Learn(cvc_);
   }
-
-  //all of the experiences have been moved elsewhere, ditch the empty pointers
-  experiences_.clear();
 }
 
 void DecisionEngine::LogInvalidAction(const Action* action) {

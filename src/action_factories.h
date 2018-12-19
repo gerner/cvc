@@ -8,6 +8,32 @@
 #include "core.h"
 #include "decision_engine.h"
 
+// Creates and scores action instances for a specific type of action
+class ActionFactory {
+ public:
+  virtual ~ActionFactory() {}
+
+  virtual double EnumerateActions(
+      CVC* cvc, Character* character,
+      std::vector<std::unique_ptr<Action>>* actions) = 0;
+
+};
+
+class ResponseFactory {
+ public:
+  virtual ~ResponseFactory() {}
+  virtual double Respond(
+      CVC* cvc, Character* character, Action* action,
+      std::vector<std::unique_ptr<Action>>* actions) = 0;
+};
+
+class ActionPolicy {
+  public:
+   virtual std::unique_ptr<Action> ChooseAction(
+       std::vector<std::unique_ptr<Action>>* actions, CVC* cvc,
+       Character* character) = 0;
+};
+
 class HeuristicAgent : public Agent {
  public:
   HeuristicAgent(Character* character, ActionFactory* action_factory,
@@ -17,66 +43,70 @@ class HeuristicAgent : public Agent {
         response_factory_(response_factory),
         policy_(policy) {}
 
-  std::unique_ptr<Experience> ChooseAction(CVC* cvc) override {
+  Action* ChooseAction(CVC* cvc) override {
     // list the choices of actions
-    std::vector<std::unique_ptr<Experience>> actions;
+    std::vector<std::unique_ptr<Action>> actions;
     action_factory_->EnumerateActions(cvc, character_, &actions);
 
     // choose one according to the policy and store it, along with this agent in
-    // a partial Experience which we will fill out later
-    return policy_->ChooseAction(&actions, cvc, character_);
+    // a partial Action which we will fill out later
+    next_action_ = policy_->ChooseAction(&actions, cvc, character_);
+    return next_action_.get();
   }
 
-  std::unique_ptr<Experience> Respond(CVC* cvc, Action* action) override {
+  Action* Respond(CVC* cvc, Action* action) override {
      //TODO: heuristic response TBD
-     return std::make_unique<Experience>(
-         this, nullptr,
-         std::make_unique<TrivialAction>(character_, 0.0,
-                                         std::vector<double>({})),
-         nullptr);
+     responses_.push_back(std::make_unique<TrivialAction>(character_, 0.0,
+                                         std::vector<double>({})));
+     return responses_.back().get();
   }
 
   // no learning on the heuristic agent
-  void Learn(CVC* cvc, std::unique_ptr<Experience> experience) override {}
+  void Learn(CVC* cvc) override {
+    responses_.clear();
+  }
 
  private:
   ActionFactory* action_factory_;
   ResponseFactory* response_factory_;
   ActionPolicy* policy_;
+
+  std::vector<std::unique_ptr<Action>> responses_;
+  std::unique_ptr<Action> next_action_;
 };
 
 class GiveActionFactory : public ActionFactory {
  public:
   double EnumerateActions(
       CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Experience>>* actions) override;
+      std::vector<std::unique_ptr<Action>>* actions) override;
 };
 
 class AskActionFactory : public ActionFactory {
  public:
   double EnumerateActions(
       CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Experience>>* actions) override;
+      std::vector<std::unique_ptr<Action>>* actions) override;
 };
 
 class AskResponseFactory : public ResponseFactory {
  public:
   double Respond(CVC* cvc, Character* character, Action* action,
-                 std::vector<std::unique_ptr<Experience>>* responses) override;
+                 std::vector<std::unique_ptr<Action>>* responses) override;
 };
 
 class WorkActionFactory : public ActionFactory {
  public:
   double EnumerateActions(
       CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Experience>>* actions) override;
+      std::vector<std::unique_ptr<Action>>* actions) override;
 };
 
 class TrivialActionFactory : public ActionFactory {
  public:
   double EnumerateActions(
       CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Experience>>* actions) override;
+      std::vector<std::unique_ptr<Action>>* actions) override;
 };
 
 class CompositeActionFactory : public ActionFactory {
@@ -86,7 +116,7 @@ class CompositeActionFactory : public ActionFactory {
 
   double EnumerateActions(
       CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Experience>>* actions) override;
+      std::vector<std::unique_ptr<Action>>* actions) override;
 
  private:
   std::unordered_map<std::string, ActionFactory*> factories_;
@@ -94,8 +124,8 @@ class CompositeActionFactory : public ActionFactory {
 
 class ProbDistPolicy : public ActionPolicy {
  public:
-  std::unique_ptr<Experience> ChooseAction(
-      std::vector<std::unique_ptr<Experience>>* actions, CVC* cvc,
+  std::unique_ptr<Action> ChooseAction(
+      std::vector<std::unique_ptr<Action>>* actions, CVC* cvc,
       Character* character) override;
 };
 

@@ -5,102 +5,11 @@
 #include <unordered_map>
 #include <random>
 #include <memory>
+#include <set>
+#include <cassert>
 
-#include "action.h"
 #include "decision_engine.h"
-
-class SARSALearner {
- public:
-  static void ReadWeights(
-      const char* weight_file,
-      std::unordered_map<std::string, SARSALearner*> learners);
-
-  static void WriteWeights(
-      const char* weight_file,
-      std::unordered_map<std::string, SARSALearner*> learners);
-
-  //creates a randomly initialized learner
-  static std::unique_ptr<SARSALearner> Create(double n, double g,
-                                              std::mt19937& random_generator,
-                                              size_t num_features,
-                                              Logger* learn_logger);
-
-  SARSALearner(double n, double g, std::vector<double> weights,
-               Logger* learn_logger);
-
-  void Learn(CVC* cvc, std::unique_ptr<Experience> experience);
-
-  std::unique_ptr<Experience> WrapAction(CVC* cvc, std::unique_ptr<Action> action) {
-    return std::make_unique<Experience>(nullptr, this, std::move(action),
-                                        nullptr);
-  }
-
-  void WriteWeights(FILE* weights_file);
-  void ReadWeights(FILE* weights_file);
-
-  double Score(const std::vector<double>& features);
-
- private:
-  double n_; //learning rate
-  double g_; //discount factor
-  std::vector<double> weights_;
-
-  Logger* learn_logger_;
-};
-
-class SARSAActionFactory : public ActionFactory {
- public:
-  SARSAActionFactory(std::unique_ptr<SARSALearner> learner);
-
-  SARSALearner* GetLearner() { return learner_.get(); }
-
- protected:
-  std::unique_ptr<SARSALearner> learner_;
-};
-
-class SARSAResponseFactory : public ResponseFactory {
- public:
-  virtual double Respond(CVC* cvc, Action* action,
-                         std::vector<std::unique_ptr<Action>>* actions) = 0;
-
-  SARSALearner* GetLearner() { return learner_.get(); }
-
- protected:
-  std::unique_ptr<SARSALearner> learner_;
-};
-
-//TODO: need to sort out exactly what abstraction the agent needs
-// a learning agent
-// configured with:
-//  an action factory which can list (scored) candidate actions given current
-//  game state
-//  a respponse factory which can list (scored) candidate response actions given
-//  current game state and some proposal action
-//  a policy for choosing a single candidate action (or response) from a set of
-//  candidates
-//  a set of learners for different action experiences
-class SARSAAgent : public Agent {
- public:
-  SARSAAgent(Character* character, ActionFactory* action_factory,
-             ResponseFactory* response_factory, ActionPolicy* policy,
-             std::unordered_map<std::string, SARSALearner*> learners)
-      : Agent(character),
-        action_factory_(action_factory),
-        response_factory_(response_factory),
-        policy_(policy),
-        learners_(learners) {}
-
-  std::unique_ptr<Experience> ChooseAction(CVC* cvc) override;
-  std::unique_ptr<Experience> Respond(CVC* cvc, Action* action) override;
-  void Learn(CVC* cvc, std::unique_ptr<Experience> experience) override;
-
- private:
-  ActionFactory* action_factory_;
-  ResponseFactory* response_factory_;
-  ActionPolicy* policy_;
-  std::unordered_map<std::string, SARSALearner*> learners_;
-};
-
+#include "sarsa_agent.h"
 
 class SARSAGiveActionFactory : public SARSAActionFactory {
  public:
@@ -150,21 +59,7 @@ class SARSATrivialActionFactory : public SARSAActionFactory {
       std::vector<std::unique_ptr<Experience>>* actions) override;
 };
 
-class SARSACompositeActionFactory : public ActionFactory {
- public:
-  SARSACompositeActionFactory(
-      std::unordered_map<std::string, SARSAActionFactory*> factories,
-      const char* weight_file);
-
-  double EnumerateActions(
-      CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Experience>>* actions);
-
- private:
-  std::unordered_map<std::string, SARSAActionFactory*> factories_;
-};
-
-class EpsilonGreedyPolicy : public ActionPolicy {
+class EpsilonGreedyPolicy : public SARSAActionPolicy {
  public:
   EpsilonGreedyPolicy(double epsilon) : epsilon_(epsilon){};
 

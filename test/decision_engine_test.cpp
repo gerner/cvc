@@ -30,24 +30,22 @@ class TestAgent : public Agent {
  public:
   TestAgent(Character* c) : Agent(c) {}
 
-  std::unique_ptr<Experience> ChooseAction(CVC* cvc) override {
+  Action* ChooseAction(CVC* cvc) override {
     choose_calls_++;
-    return Experience::WrapAction(
-        std::make_unique<RecordingTestAction>(character_, &tas_));
+    next_action_ = std::make_unique<RecordingTestAction>(character_, &tas_);
+    return next_action_.get();
   }
 
-  std::unique_ptr<Experience> Respond(CVC* cvc, Action* action) override {
+  Action* Respond(CVC* cvc, Action* action) override {
     return nullptr;
   }
 
-  void Learn(CVC* cvc, std::unique_ptr<Experience> experience) override {
+  void Learn(CVC* cvc) override {
     EXPECT_NE(nullptr, cvc);
-    EXPECT_NE(nullptr, experience->action_);
-    EXPECT_NE(nullptr, experience->next_action_);
-
-    EXPECT_STREQ("RTA", experience->action_->GetActionId());
     learn_calls_++;
   }
+
+  std::unique_ptr<Action> next_action_ = nullptr;
 
   int choose_calls_ = 0;
   int learn_calls_ = 0;

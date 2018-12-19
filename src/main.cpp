@@ -7,6 +7,7 @@
 #include "core.h"
 #include "decision_engine.h"
 #include "action_factories.h"
+#include "sarsa_agent.h"
 #include "sarsa_action_factories.h"
 
 int main(int argc, char** argv) {
@@ -67,14 +68,21 @@ int main(int argc, char** argv) {
                                         &trivial_learn_logger);
   std::unique_ptr<SARSAWorkActionFactory> swaf = SARSAWorkActionFactory::Create(
       n, g, random_generator, &work_learn_logger);
-  SARSACompositeActionFactory scf({{"GiveAction", sgaf.get()},
-                                   {"AskAction", saaf.get()},
-                                   {"WorkAction", swaf.get()},
-                                   {"TrivialAction", staf.get()}},
-                                   "/tmp/weights");
+  //TODO: get rid of this
+  /*SARSACompositeActionFactory scf(
+      std::unordered_map<std::string, SARSAActionFactory*>(
+          {{"GiveAction", sgaf.get()},
+           {"AskAction", saaf.get()},
+           {"WorkAction", swaf.get()},
+           {"TrivialAction", staf.get()}}));*/
+  std::vector<SARSAActionFactory*> sarsa_action_factories({
+      sgaf.get(), saaf.get(), swaf.get(), staf.get()});
   /*std::unique_ptr<SARSAAskResponseFactory> sarf =
       SARSAAskResponseFactory::Create(n, g, random_generator,
                                       &ask_response_learn_logger);*/
+
+  std::unordered_map<std::string, std::set<SARSAResponseFactory*>>
+      sarsa_response_factories;
 
   //scf.ReadWeights();
   EpsilonGreedyPolicy egp(e);
@@ -87,12 +95,7 @@ int main(int argc, char** argv) {
     characters.back()->traits_[kLanguage] = language_dist(random_generator);
 
     a.push_back(std::make_unique<SARSAAgent>(
-        characters.back(), &scf, nullptr, &egp,
-        std::unordered_map<std::string, SARSALearner*>(
-            {{"GiveAction", sgaf->GetLearner()},
-             {"AskAction", saaf->GetLearner()},
-             {"WorkAction", swaf->GetLearner()},
-             {"TrivialAction", staf->GetLearner()}})));
+        characters.back(), sarsa_action_factories, sarsa_response_factories, &egp));
     agents.push_back(a.back().get());
   }
 

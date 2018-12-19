@@ -8,7 +8,7 @@
 
 double GiveActionFactory::EnumerateActions(
     CVC* cvc, Character* character,
-    std::vector<std::unique_ptr<Experience>>* actions) {
+    std::vector<std::unique_ptr<Action>>* actions) {
   double score = 0.0;
 
   Character* best_target = NULL;
@@ -33,8 +33,8 @@ double GiveActionFactory::EnumerateActions(
       }
     }
     if (best_target) {
-      actions->push_back(Experience::WrapAction(std::make_unique<GiveAction>(
-          character, 0.4, std::vector<double>({1.0, 0.2}), best_target, 10.0)));
+      actions->push_back(std::make_unique<GiveAction>(
+          character, 0.4, std::vector<double>({1.0, 0.2}), best_target, 10.0));
       score = 0.4;
     }
   }
@@ -43,7 +43,7 @@ double GiveActionFactory::EnumerateActions(
 
 double AskActionFactory::EnumerateActions(
     CVC* cvc, Character* character,
-    std::vector<std::unique_ptr<Experience>>* actions) {
+    std::vector<std::unique_ptr<Action>>* actions) {
   double score = 0.0;
 
   Character* best_target = NULL;
@@ -71,8 +71,8 @@ double AskActionFactory::EnumerateActions(
     }
   }
   if (best_target) {
-    actions->push_back(Experience::WrapAction(std::make_unique<AskAction>(
-        character, 0.4, std::vector<double>({0.7, 0.5}), best_target, 10.0)));
+    actions->push_back(std::make_unique<AskAction>(
+        character, 0.4, std::vector<double>({0.7, 0.5}), best_target, 10.0));
     score = 0.4;
   }
   return score;
@@ -80,7 +80,7 @@ double AskActionFactory::EnumerateActions(
 
 double AskResponseFactory::Respond(
     CVC* cvc, Character* character, Action* action,
-    std::vector<std::unique_ptr<Experience>>* responses) {
+    std::vector<std::unique_ptr<Action>>* responses) {
 
   AskAction* ask_action = (AskAction*)action;
 
@@ -95,14 +95,13 @@ double AskResponseFactory::Respond(
   }
 
   if (success) {
-    responses->push_back(Experience::WrapAction(std::make_unique<AskSuccessAction>(
+    responses->push_back(std::make_unique<AskSuccessAction>(
         ask_action->GetTarget(), 1.0, std::vector<double>({1.0}),
-        ask_action->GetActor(), ask_action)));
+        ask_action->GetActor(), ask_action));
   } else {
     // on failure:
-    responses->push_back(
-        Experience::WrapAction(std::make_unique<TrivialResponse>(
-            ask_action->GetTarget(), 1.0, std::vector<double>({1.0}))));
+    responses->push_back(std::make_unique<TrivialResponse>(
+        ask_action->GetTarget(), 1.0, std::vector<double>({1.0})));
     // decrease opinion of actor (refused request)
     /*this->GetActor()->AddRelationship(std::make_unique<RelationshipModifier>(
         this->GetTarget(), gamestate->Now(), gamestate->Now() + 10,
@@ -116,11 +115,11 @@ double AskResponseFactory::Respond(
 
 double WorkActionFactory::EnumerateActions(
     CVC* cvc, Character* character,
-    std::vector<std::unique_ptr<Experience>>* actions) {
+    std::vector<std::unique_ptr<Action>>* actions) {
   for (Character* target : cvc->GetCharacters()) {
     if(target->GetOpinionOf(character) > 0.0) {
-      actions->push_back(Experience::WrapAction(
-          std::make_unique<WorkAction>(character, 0.3, std::vector<double>())));
+      actions->push_back(
+          std::make_unique<WorkAction>(character, 0.3, std::vector<double>()));
       return 0.3;
     }
   }
@@ -129,9 +128,9 @@ double WorkActionFactory::EnumerateActions(
 
 double TrivialActionFactory::EnumerateActions(
     CVC* cvc, Character* character,
-    std::vector<std::unique_ptr<Experience>>* actions) {
-  actions->push_back(Experience::WrapAction(
-      std::make_unique<TrivialAction>(character, 0.2, std::vector<double>())));
+    std::vector<std::unique_ptr<Action>>* actions) {
+  actions->push_back(
+      std::make_unique<TrivialAction>(character, 0.2, std::vector<double>()));
   return 0.2;
 }
 
@@ -141,7 +140,7 @@ CompositeActionFactory::CompositeActionFactory(
 
 double CompositeActionFactory::EnumerateActions(
     CVC* cvc, Character* character,
-    std::vector<std::unique_ptr<Experience>>* actions) {
+    std::vector<std::unique_ptr<Action>>* actions) {
   double score = 0.0;
   for(const auto& factory : factories_) {
     score += factory.second->EnumerateActions(cvc, character, actions);
@@ -149,15 +148,15 @@ double CompositeActionFactory::EnumerateActions(
   return score;
 }
 
-std::unique_ptr<Experience> ProbDistPolicy::ChooseAction(
-    std::vector<std::unique_ptr<Experience>>* actions, CVC* cvc,
+std::unique_ptr<Action> ProbDistPolicy::ChooseAction(
+    std::vector<std::unique_ptr<Action>>* actions, CVC* cvc,
     Character* character) {
   // there must be at least one action to choose from (even if it's trivial)
   assert(!actions->empty());
 
   double sum_score = 0.0;
-  for(auto& experience : *actions) {
-    sum_score += experience->action_->GetScore();
+  for(auto& action : *actions) {
+    sum_score += action->GetScore();
   }
 
   // choose one
@@ -168,12 +167,12 @@ std::unique_ptr<Experience> ProbDistPolicy::ChooseAction(
   // DecisionEngine is responsible for maintaining the lifecycle of the action
   // so we'll move it to our state and ditch the rest when they go out of
   // scope
-  for (std::unique_ptr<Experience>& experience : *actions) {
-    sum_prob += experience->action_->GetScore() / sum_score;
+  for (std::unique_ptr<Action>& action : *actions) {
+    sum_prob += action->GetScore() / sum_score;
     if (choice < sum_prob) {
-      assert(experience->action_->IsValid(cvc));
+      assert(action->IsValid(cvc));
       // keep this one action
-      return std::move(experience);
+      return std::move(action);
     }
   }
   assert(false);

@@ -200,7 +200,7 @@ Action* SARSAAgent::ChooseAction(CVC* cvc) {
   next_action_ = policy_->ChooseAction(&actions, cvc, character_);
 
   //TODO: should really support other kinds of objectives than just money
-  next_action_->score_ = character_->GetMoney();
+  next_action_->score_ = Score(cvc);
 
   return next_action_->action_.get();
 }
@@ -222,8 +222,7 @@ Action* SARSAAgent::Respond(CVC* cvc, Action* action) {
   //3. choose
   experiences_.push_back(policy_->ChooseAction(&actions, cvc, character_));
 
-  //TODO: should really support other kinds of objectives than just money
-  experiences_.back()->score_ = character_->GetMoney();
+  experiences_.back()->score_ = Score(cvc);
   return experiences_.back()->action_.get();
 }
 
@@ -231,12 +230,16 @@ void SARSAAgent::Learn(CVC* cvc) {
   // TODO: consider n-step SARSA, or modify things to conisder just the n-step
   // sequence of rewards (short-sighted learner)
   for(auto& experience : experiences_) {
-    //TODO: shouldn't just use money
-    experience->reward_ = character_->GetMoney() - experience->score_;
+    experience->reward_ = Score(cvc) - experience->score_;
     experience->next_action_ = next_action_->action_.get();
     experience->learner_->Learn(cvc, experience.get());
   }
 
   experiences_.clear();
+}
+
+double SARSAAgent::Score(CVC* cvc) {
+  //TODO: should really support other kinds of objectives than just money
+  return character_->GetMoney();
 }
 

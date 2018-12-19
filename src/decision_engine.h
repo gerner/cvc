@@ -74,10 +74,6 @@ class DecisionEngine {
   // have a next action assigned
   std::list<Action*> queued_actions_;
 
-  // the set of experiences for the current game tick
-  // there might be zero or more per agent
-  /*std::vector<std::unique_ptr<Experience>> experiences_;*/
-
   // a lookup from a character to the decision making capacity for that
   // character, the agent controlling that character.
   // this lookup MUST be maintained in the face of characters entering or

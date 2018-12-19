@@ -139,6 +139,9 @@ class SARSAAgent : public Agent {
   void Learn(CVC* cvc) override;
 
  private:
+
+  double Score(CVC* cvc);
+
   std::vector<SARSAActionFactory*> action_factories_;
   std::unordered_map<std::string, std::set<SARSAResponseFactory*>>
       response_factories_;

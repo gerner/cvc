@@ -110,7 +110,6 @@ CVC::CVC(std::vector<Character*> characters, Logger* logger,
       logger_(logger),
       random_generator_(random_generator) {}
 
-//TODO: don't do this, have the vector of pointers handy
 std::vector<Character*> CVC::GetCharacters() const { return characters_; }
 
 void CVC::LogState() {
@@ -154,6 +153,17 @@ const Stats& CVC::GetMoneyStats() {
   }
   ComputeStats();
   return global_money_stats_;
+}
+
+void CVC::Tick() {
+  ExpireRelationships();
+
+  //clear cache of stats
+  global_opinion_stats_.n_ = 0;
+  opinion_of_stats_.clear();
+  global_money_stats_.n_ = 0;
+  opinion_by_stats_.clear();
+  ticks_++;
 }
 
 

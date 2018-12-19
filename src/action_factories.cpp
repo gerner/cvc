@@ -34,8 +34,7 @@ double GiveActionFactory::EnumerateActions(
     }
     if (best_target) {
       actions->push_back(std::make_unique<GiveAction>(
-          character, 0.4, std::vector<double>({1.0, 0.2}), best_target,
-          10.0));
+          character, 0.4, std::vector<double>({1.0, 0.2}), best_target, 10.0));
       score = 0.4;
     }
   }
@@ -48,26 +47,26 @@ double AskActionFactory::EnumerateActions(
   double score = 0.0;
 
   Character* best_target = NULL;
-  double best_opinion = 0.0;
+  double best_money = 0.0;
   for (Character* target : cvc->GetCharacters()) {
     // skip self
     if (character == target) {
       continue;
     }
 
-    if (target->GetMoney() <= 10.0) {
+    //if the character has no money, skip
+    if (target->GetMoney() < 10.0) {
       continue;
     }
 
-    // skip if target has below average money
-    if (target->GetMoney() > cvc->GetMoneyStats().mean_) {
+    if(target->GetOpinionOf(character) < 0) {
       continue;
     }
 
-    // pick the character that likes us the least
-    double opinion = target->GetOpinionOf(character);
-    if (opinion > best_opinion) {
-      best_opinion = opinion;
+    // pick the character that has the most money
+    double money = target->GetMoney();
+    if (money > best_money) {
+      best_money = money;
       best_target = target;
     }
   }
@@ -77,6 +76,41 @@ double AskActionFactory::EnumerateActions(
     score = 0.4;
   }
   return score;
+}
+
+double AskResponseFactory::Respond(
+    CVC* cvc, Character* character, Action* action,
+    std::vector<std::unique_ptr<Action>>* responses) {
+
+  AskAction* ask_action = (AskAction*)action;
+
+  // check to see if the target will accept
+  // opinion < 0 => no, otherwise some distribution improves with opinion
+  double opinion = ask_action->GetTarget()->GetOpinionOf(ask_action->GetActor());
+  std::uniform_real_distribution<> dist(0.0, 1.0);
+  bool success = false;
+  if (opinion > 0.0 && dist(*cvc->GetRandomGenerator()) <
+                           1.0 / (1.0 + exp(-10.0 * (opinion - 0.5)))) {
+    success = true;
+  }
+
+  if (success) {
+    responses->push_back(std::make_unique<AskSuccessAction>(
+        ask_action->GetTarget(), 1.0, std::vector<double>({1.0}),
+        ask_action->GetActor(), ask_action));
+  } else {
+    // on failure:
+    responses->push_back(std::make_unique<TrivialResponse>(
+        ask_action->GetTarget(), 1.0, std::vector<double>({1.0})));
+    // decrease opinion of actor (refused request)
+    /*this->GetActor()->AddRelationship(std::make_unique<RelationshipModifier>(
+        this->GetTarget(), gamestate->Now(), gamestate->Now() + 10,
+        this->request_amount_));
+    SetReward(0.0);
+    gamestate->GetLogger()->Log(DEBUG, "request_failed by %d to %d of %f\n", this->GetActor()->GetId(),
+           this->GetTarget()->GetId(), this->request_amount_);*/
+  }
+  return 1.0;
 }
 
 double WorkActionFactory::EnumerateActions(
@@ -112,12 +146,6 @@ double CompositeActionFactory::EnumerateActions(
     score += factory.second->EnumerateActions(cvc, character, actions);
   }
   return score;
-}
-
-void CompositeActionFactory::Learn(CVC* cvc, const Action* action,
-                                   const Action* next_action) {
-  //pass learning on to the appropriate child factory
-  factories_[action->GetActionId()]->Learn(cvc, action, next_action);
 }
 
 std::unique_ptr<Action> ProbDistPolicy::ChooseAction(

@@ -8,6 +8,7 @@
 class Action {
  public:
   Action(const char* action_id, Character* actor, double score, std::vector<double> features);
+  Action(const char* action_id, Character* actor, Character* target, double score, std::vector<double> features);
   virtual ~Action();
   // Get this action's actor (the character taking the action)
   Character* GetActor() const {
@@ -15,6 +16,13 @@ class Action {
   }
   void SetActor(Character* actor) {
     actor_ = actor;
+  }
+
+  Character* GetTarget() const {
+    return target_;
+  }
+  void SetTarget(Character* target) {
+    target_ = target;
   }
 
   std::vector<double> GetFeatureVector() const {
@@ -50,12 +58,15 @@ class Action {
   // the given character
   virtual bool IsValid(const CVC* gamestate) = 0;
 
+  virtual bool RequiresResponse();
+
   // Have this action take effect by the given character
   virtual void TakeEffect(CVC* gamestate) = 0;
 
  private:
   const char* action_id_;
   Character* actor_;
+  Character* target_;
   double score_;
   double reward_;
   std::vector<double> feature_vector_;
@@ -65,6 +76,15 @@ class Action {
 class TrivialAction : public Action {
  public:
   TrivialAction(Character* actor, double score, std::vector<double> features);
+
+  // implementation of Action
+  bool IsValid(const CVC* gamestate);
+  void TakeEffect(CVC* gamestate);
+};
+
+class TrivialResponse : public Action {
+ public:
+  TrivialResponse(Character* actor, double score, std::vector<double> features);
 
   // implementation of Action
   bool IsValid(const CVC* gamestate);
@@ -89,11 +109,28 @@ class AskAction : public Action {
 
   // implementation of Action
   bool IsValid(const CVC* gamestate);
+  bool RequiresResponse() override;
+  void TakeEffect(CVC* gamestate);
+
+  double GetRequestAmount() const {
+    return request_amount_;
+  }
+
+ private:
+  double request_amount_;
+};
+
+class AskSuccessAction : public Action {
+ public:
+  AskSuccessAction(Character* actor, double score, std::vector<double> features,
+                   Character* target, AskAction* source_action);
+
+  // implementation of Action
+  bool IsValid(const CVC* gamestate);
   void TakeEffect(CVC* gamestate);
 
  private:
-  Character* target_;
-  double request_amount_;
+  AskAction* source_action_;
 };
 
 // StealAction: (try to) steal money from target character, succeeds with chance
@@ -107,7 +144,6 @@ class StealAction : public Action {
   void TakeEffect(CVC* gamestate);
 
  private:
-  Character* target_;
   double steal_amount_;
 };
 
@@ -123,7 +159,6 @@ class GiveAction : public Action {
   void TakeEffect(CVC* gamestate);
 
  private:
-  Character* target_;
   double gift_amount_;
 };
 

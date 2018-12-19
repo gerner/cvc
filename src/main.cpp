@@ -7,6 +7,7 @@
 #include "core.h"
 #include "decision_engine.h"
 #include "action_factories.h"
+#include "sarsa_agent.h"
 #include "sarsa_action_factories.h"
 
 int main(int argc, char** argv) {
@@ -30,10 +31,13 @@ int main(int argc, char** argv) {
   AskActionFactory aaf;
   WorkActionFactory waf;
   TrivialActionFactory taf;
-  CompositeActionFactory cf({{"GiveAction", &gaf},
-                             {"AskAction", &aaf},
+  CompositeActionFactory cf({
                              {"WorkAction", &waf},
+                             {"GiveAction", &gaf},
+                             {"AskAction", &aaf},
                              {"TrivialAction", &taf}});
+  AskResponseFactory rf;
+
   ProbDistPolicy pdp;
   for(int i=0; i<5; i++) {
     c.push_back(std::make_unique<Character>(i, money_dist(random_generator)));
@@ -41,11 +45,11 @@ int main(int argc, char** argv) {
     characters.back()->traits_[kBackground] = background_dist(random_generator);
     characters.back()->traits_[kLanguage] = language_dist(random_generator);
 
-    a.push_back(std::make_unique<Agent>(characters.back(), &cf, &pdp));
+    a.push_back(std::make_unique<HeuristicAgent>(characters.back(), &cf, &rf, &pdp));
     agents.push_back(a.back().get());
   }
 
-  double e = 0.2;
+  double e = 0.1;
   double n = 0.0001;
   double g = 1.0;
 
@@ -54,8 +58,11 @@ int main(int argc, char** argv) {
   setvbuf(learn_log, NULL, _IOLBF, 1024*10);
   Logger give_learn_logger("learn_give", learn_log);
   Logger ask_learn_logger("learn_ask", learn_log);
+  Logger ask_success_learn_logger("learn_ask_success", learn_log);
+  Logger ask_failure_learn_logger("learn_ask_failure", learn_log);
   Logger trivial_learn_logger("learn_trivial", learn_log);
   Logger work_learn_logger("learn_work", learn_log);
+
   std::unique_ptr<SARSAGiveActionFactory> sgaf = SARSAGiveActionFactory::Create(
       n, g, random_generator, &give_learn_logger);
   std::unique_ptr<SARSAAskActionFactory> saaf =
@@ -65,12 +72,21 @@ int main(int argc, char** argv) {
                                         &trivial_learn_logger);
   std::unique_ptr<SARSAWorkActionFactory> swaf = SARSAWorkActionFactory::Create(
       n, g, random_generator, &work_learn_logger);
-  SARSACompositeActionFactory scf({{"GiveAction", sgaf.get()},
-                                   {"AskAction", saaf.get()},
-                                   {"WorkAction", swaf.get()},
-                                   {"TrivialAction", staf.get()}},
-                                   "/tmp/weights");
-  scf.ReadWeights();
+
+  std::vector<SARSAActionFactory*> sarsa_action_factories({
+      sgaf.get(), saaf.get(), swaf.get(), staf.get()});
+
+  std::unique_ptr<SARSAAskSuccessResponseFactory> asrf =
+      SARSAAskSuccessResponseFactory::Create(n, g, random_generator,
+                                             &ask_success_learn_logger);
+  std::unique_ptr<SARSAAskFailureResponseFactory> afrf =
+      SARSAAskFailureResponseFactory::Create(n, g, random_generator,
+                                             &ask_failure_learn_logger);
+
+  std::unordered_map<std::string, std::set<SARSAResponseFactory*>>
+      sarsa_response_factories({{"AskAction", {asrf.get(), afrf.get()}}});
+
+  //scf.ReadWeights();
   EpsilonGreedyPolicy egp(e);
   int num_non_learning_agents = agents.size();
   for(int i=0; i<1; i++) {
@@ -80,7 +96,8 @@ int main(int argc, char** argv) {
     characters.back()->traits_[kBackground] = background_dist(random_generator);
     characters.back()->traits_[kLanguage] = language_dist(random_generator);
 
-    a.push_back(std::make_unique<Agent>(characters.back(), &scf, &egp));
+    a.push_back(std::make_unique<SARSAAgent>(
+        characters.back(), sarsa_action_factories, sarsa_response_factories, &egp));
     agents.push_back(a.back().get());
   }
 
@@ -92,9 +109,18 @@ int main(int argc, char** argv) {
       DecisionEngine::Create(agents, &cvc, action_log);
 
   logger.Log(INFO, "running the game loop\n");
-  d->GameLoop();
 
-  scf.WriteWeights();
+  cvc.LogState();
+  for (; cvc.Now() < 100000;) {
+    d->RunOneGameLoop();
+
+    if(cvc.Now() % 10000 == 0) {
+      cvc.LogState();
+    }
+  }
+  cvc.LogState();
+
+  //scf.WriteWeights();
 
   fclose(action_log);
   fclose(learn_log);

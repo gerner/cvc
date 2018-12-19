@@ -3,55 +3,41 @@
 
 #include <memory>
 #include <vector>
+#include <list>
+#include <functional>
 
 #include "core.h"
 #include "action.h"
 
-// Creates and scores action instances for a specific type of action
-class ActionFactory {
+class Agent;
+
+// An agent acts on behalf of a character in CVC
+// It must be able to, given the current game state choose an "independent"
+// action representing what the character will do next
+// It must be able to, given the current game state and another character's
+// proposal choose a "response" action
+// It should learn from experiences during a game tick
+class Agent {
  public:
-  virtual ~ActionFactory();
+  Agent(Character* character) : character_(character) {}
 
-  virtual double EnumerateActions(
-      CVC* cvc, Character* character,
-      std::vector<std::unique_ptr<Action>>* actions) = 0;
+  virtual ~Agent() {}
 
-  virtual void Learn(CVC* cvc, const Action* action, const Action* next_action);
-};
+  // contract:
+  // both ChooseAction and Respond need to create an action
+  // those actions need to live until the next Learn call
+  // after that the game engine is done
+  // after the Learn call, the game no longer needs the experience, so it's up
+  // to us to manage it. this is true for the contained action as well.
+  virtual Action* ChooseAction(CVC* cvc) = 0;
+  virtual Action* Respond(CVC* cvc, Action* action) = 0;
+  virtual void Learn(CVC* cvc) = 0;
 
-class ActionPolicy {
-  public:
-   virtual std::unique_ptr<Action> ChooseAction(
-       std::vector<std::unique_ptr<Action>>* actions, CVC* cvc,
-       Character* character) = 0;
-};
+  Character* GetCharacter() const { return character_; }
 
-struct Agent {
-  Agent(Character* character, ActionFactory* action_factory,
-        ActionPolicy* policy)
-      : character_(character),
-        action_factory_(action_factory),
-        policy_(policy) {}
+ protected:
 
   Character* character_;
-  ActionFactory* action_factory_;
-  ActionPolicy* policy_;
-};
-
-struct Experience {
-  Agent* agent_;
-
-  //s, a, r, s', a'
-  //need:
-  //Q(s, a): estimate of final score given prior state/action
-  //r: observed reward taking a in state s
-  //Q(s', a'): estimate of final score given next state/action
-
-  //previous action
-  std::unique_ptr<Action> action_;
-
-  //next action
-  std::unique_ptr<Action> next_action_;
 };
 
 class DecisionEngine {
@@ -61,7 +47,15 @@ class DecisionEngine {
 
   DecisionEngine(std::vector<Agent*> agents, CVC* cvc,
                  FILE* action_log);
-  void GameLoop();
+
+  // Runs one loop of the game
+  // When this method returns a few things will be true
+  //    * pending actions are carried out on behalf of characters
+  //    * game state ticks forward, any passive activies are carried out
+  //    * new actions are chosen on behalf of characters, according to
+  //    configured agents
+  //    * those agents are given a chance to learn from experiences
+  void RunOneGameLoop();
 
  private:
   void ChooseActions();
@@ -74,7 +68,17 @@ class DecisionEngine {
   const std::vector<Agent*> agents_;
   CVC* cvc_;
   FILE* action_log_;
-  std::vector<std::unique_ptr<Experience>> experiences_;
+
+  // represents the next set of actions we're going to take
+  // note, these are partial experiences which haven't played out and don't
+  // have a next action assigned
+  std::list<Action*> queued_actions_;
+
+  // a lookup from a character to the decision making capacity for that
+  // character, the agent controlling that character.
+  // this lookup MUST be maintained in the face of characters entering or
+  // leaving the game.
+  std::unordered_map<Character*, Agent*> agent_lookup_;
 };
 
 #endif

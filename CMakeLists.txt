@@ -13,6 +13,7 @@ add_library(core
   ./src/decision_engine.cpp
   ./src/action.cpp
   ./src/action_factories.cpp
+  ./src/sarsa_agent.cpp
   ./src/sarsa_action_factories.cpp)
 
 # Main entry point.
@@ -41,7 +42,8 @@ if(TESTS)
 
   # Tests. *-test.cpp should be added here.
   add_executable(tests
-    ./test/core_test.cpp)
+    ./test/core_test.cpp
+    ./test/decision_engine_test.cpp)
 #    ./test/function-test.cpp
 #    ./test/class-test.cpp)
 #

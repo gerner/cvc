@@ -77,14 +77,13 @@ TEST_F(DecisionEngineTest, TestRunOneGameLoop) {
   //no actions should happen
   //game should tick forward
   //new actions should be chosen
-  //no learning should happen
+  //we should get a learn call
   decision_engine_->RunOneGameLoop();
 
   EXPECT_EQ(start_tick + 1, cvc_.Now());
   EXPECT_EQ(0, a_.tas_.effects_);
   EXPECT_EQ(1, a_.choose_calls_);
-  //TODO: clean this up and the commented out line below
-  //EXPECT_EQ(0, a_.learn_calls_);
+  EXPECT_EQ(1, a_.learn_calls_);
 
   //check that new actions have been chosen
 
@@ -97,5 +96,6 @@ TEST_F(DecisionEngineTest, TestRunOneGameLoop) {
   EXPECT_EQ(1, a_.tas_.effects_);
   EXPECT_EQ(cvc_.Now() - 1, a_.tas_.last_tick_);
   EXPECT_EQ(2, a_.choose_calls_);
-  //EXPECT_EQ(1, a_.learn_calls_);
+  EXPECT_EQ(2, a_.learn_calls_);
 }
+

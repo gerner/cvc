@@ -47,26 +47,26 @@ double AskActionFactory::EnumerateActions(
   double score = 0.0;
 
   Character* best_target = NULL;
-  double best_opinion = 0.0;
+  double best_money = 0.0;
   for (Character* target : cvc->GetCharacters()) {
     // skip self
     if (character == target) {
       continue;
     }
 
-    if (target->GetMoney() <= 10.0) {
+    //if the character has no money, skip
+    if (target->GetMoney() < 10.0) {
       continue;
     }
 
-    // skip if target has below average money
-    if (target->GetMoney() > cvc->GetMoneyStats().mean_) {
+    if(target->GetOpinionOf(character) < 0) {
       continue;
     }
 
-    // pick the character that likes us the least
-    double opinion = target->GetOpinionOf(character);
-    if (opinion > best_opinion) {
-      best_opinion = opinion;
+    // pick the character that has the most money
+    double money = target->GetMoney();
+    if (money > best_money) {
+      best_money = money;
       best_target = target;
     }
   }

@@ -130,11 +130,23 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   double d = truth_estimate - action->GetScore();
   assert(!std::isinf(d));
 
+  //log:
+  // tick
+  // action
+  // reward
+  // estimated score
+  // r + g * next estimated score
+  // d
+  // |
+  // features
+  // |
+  // weights
   learn_logger_->Log(
-      INFO, "%d\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n", cvc->Now(), d,
-      action->GetScore(), truth_estimate, action->GetReward(),
-      action->GetFeatureVector()[0], action->GetFeatureVector()[1], weights_[0],
-      weights_[1]);
+      INFO, "%d\t%s\t%f\t%f\t%f\t%f\t|\t%f\t%f\t|\t%f\t%f\n",
+      cvc->Now(), action->GetActionId(), experience->reward_,
+      action->GetScore(), truth_estimate, d,
+      action->GetFeatureVector()[0], action->GetFeatureVector()[1],
+      weights_[0], weights_[1]);
 
   // assert(action->GetScore() == Score(action->GetFeatureVector()));
   // update the weights

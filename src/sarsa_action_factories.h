@@ -35,6 +35,30 @@ class SARSAAskActionFactory : public SARSAActionFactory {
       std::vector<std::unique_ptr<Experience>>* actions) override;
 };
 
+class SARSAAskSuccessResponseFactory : public SARSAResponseFactory {
+ public:
+  static std::unique_ptr<SARSAAskSuccessResponseFactory> Create(
+      double n, double g, std::mt19937& random_generator, Logger* learn_logger);
+
+  SARSAAskSuccessResponseFactory(std::unique_ptr<SARSALearner> learner);
+
+  double Respond(
+      CVC* cvc, Character* character, Action* action,
+      std::vector<std::unique_ptr<Experience>>* actions) override;
+};
+
+class SARSAAskFailureResponseFactory : public SARSAResponseFactory {
+ public:
+  static std::unique_ptr<SARSAAskFailureResponseFactory> Create(
+      double n, double g, std::mt19937& random_generator, Logger* learn_logger);
+
+  SARSAAskFailureResponseFactory(std::unique_ptr<SARSALearner> learner);
+
+  double Respond(
+      CVC* cvc, Character* character, Action* action,
+      std::vector<std::unique_ptr<Experience>>* actions) override;
+};
+
 class SARSAWorkActionFactory : public SARSAActionFactory {
  public:
   static std::unique_ptr<SARSAWorkActionFactory> Create(

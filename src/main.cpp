@@ -31,9 +31,10 @@ int main(int argc, char** argv) {
   AskActionFactory aaf;
   WorkActionFactory waf;
   TrivialActionFactory taf;
-  CompositeActionFactory cf({{"GiveAction", &gaf},
-                             {"AskAction", &aaf},
+  CompositeActionFactory cf({
                              {"WorkAction", &waf},
+                             {"GiveAction", &gaf},
+                             {"AskAction", &aaf},
                              {"TrivialAction", &taf}});
   AskResponseFactory rf;
 
@@ -57,8 +58,11 @@ int main(int argc, char** argv) {
   setvbuf(learn_log, NULL, _IOLBF, 1024*10);
   Logger give_learn_logger("learn_give", learn_log);
   Logger ask_learn_logger("learn_ask", learn_log);
+  Logger ask_success_learn_logger("learn_ask_success", learn_log);
+  Logger ask_failure_learn_logger("learn_ask_failure", learn_log);
   Logger trivial_learn_logger("learn_trivial", learn_log);
   Logger work_learn_logger("learn_work", learn_log);
+
   std::unique_ptr<SARSAGiveActionFactory> sgaf = SARSAGiveActionFactory::Create(
       n, g, random_generator, &give_learn_logger);
   std::unique_ptr<SARSAAskActionFactory> saaf =
@@ -68,21 +72,19 @@ int main(int argc, char** argv) {
                                         &trivial_learn_logger);
   std::unique_ptr<SARSAWorkActionFactory> swaf = SARSAWorkActionFactory::Create(
       n, g, random_generator, &work_learn_logger);
-  //TODO: get rid of this
-  /*SARSACompositeActionFactory scf(
-      std::unordered_map<std::string, SARSAActionFactory*>(
-          {{"GiveAction", sgaf.get()},
-           {"AskAction", saaf.get()},
-           {"WorkAction", swaf.get()},
-           {"TrivialAction", staf.get()}}));*/
+
   std::vector<SARSAActionFactory*> sarsa_action_factories({
       sgaf.get(), saaf.get(), swaf.get(), staf.get()});
-  /*std::unique_ptr<SARSAAskResponseFactory> sarf =
-      SARSAAskResponseFactory::Create(n, g, random_generator,
-                                      &ask_response_learn_logger);*/
+
+  std::unique_ptr<SARSAAskSuccessResponseFactory> asrf =
+      SARSAAskSuccessResponseFactory::Create(n, g, random_generator,
+                                             &ask_success_learn_logger);
+  std::unique_ptr<SARSAAskFailureResponseFactory> afrf =
+      SARSAAskFailureResponseFactory::Create(n, g, random_generator,
+                                             &ask_failure_learn_logger);
 
   std::unordered_map<std::string, std::set<SARSAResponseFactory*>>
-      sarsa_response_factories;
+      sarsa_response_factories({{"AskAction", {asrf.get(), afrf.get()}}});
 
   //scf.ReadWeights();
   EpsilonGreedyPolicy egp(e);

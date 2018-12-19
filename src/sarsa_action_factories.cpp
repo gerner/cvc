@@ -139,6 +139,61 @@ double SARSAAskActionFactory::EnumerateActions(
   return 0.0;
 }
 
+std::unique_ptr<SARSAAskSuccessResponseFactory>
+SARSAAskSuccessResponseFactory::Create(double n, double g,
+                                       std::mt19937& random_generator,
+                                       Logger* learn_logger) {
+  return std::make_unique<SARSAAskSuccessResponseFactory>(
+      SARSALearner::Create(n, g, random_generator, 2, learn_logger));
+}
+
+SARSAAskSuccessResponseFactory::SARSAAskSuccessResponseFactory(
+    std::unique_ptr<SARSALearner> learner)
+    : SARSAResponseFactory(std::move(learner)) {}
+
+double SARSAAskSuccessResponseFactory::Respond(
+    CVC* cvc, Character* character, Action* action,
+    std::vector<std::unique_ptr<Experience>>* actions) {
+  //action->GetTarget() is asking us for action->GetRequestAmount() money
+  AskAction* ask_action = (AskAction*)action;
+  if(character->GetMoney() < ask_action->GetRequestAmount()) {
+    return 0.0;
+  }
+
+  std::vector<double> features(
+      {1.0, ask_action->GetTarget()->GetOpinionOf(character)});
+  double score = learner_->Score(features);
+  actions->push_back(learner_->WrapAction(std::make_unique<AskSuccessAction>(
+      character, score, features, ask_action->GetActor(), ask_action)));
+  return score;
+}
+
+std::unique_ptr<SARSAAskFailureResponseFactory>
+SARSAAskFailureResponseFactory::Create(double n, double g,
+                                       std::mt19937& random_generator,
+                                       Logger* learn_logger) {
+  return std::make_unique<SARSAAskFailureResponseFactory>(
+      SARSALearner::Create(n, g, random_generator, 2, learn_logger));
+}
+
+SARSAAskFailureResponseFactory::SARSAAskFailureResponseFactory(
+    std::unique_ptr<SARSALearner> learner)
+    : SARSAResponseFactory(std::move(learner)) {}
+
+double SARSAAskFailureResponseFactory::Respond(
+    CVC* cvc, Character* character, Action* action,
+    std::vector<std::unique_ptr<Experience>>* actions) {
+  //action->GetTarget() is asking us for action->GetRequestAmount() money
+  AskAction* ask_action = (AskAction*)action;
+
+  std::vector<double> features(
+      {1.0, ask_action->GetTarget()->GetOpinionOf(character)});
+  double score = learner_->Score(features);
+  actions->push_back(learner_->WrapAction(std::make_unique<TrivialResponse>(
+      character, score, features)));
+  return score;
+}
+
 std::unique_ptr<SARSAWorkActionFactory> SARSAWorkActionFactory::Create(
     double n, double g, std::mt19937& random_generator, Logger* learn_logger) {
   return std::make_unique<SARSAWorkActionFactory>(

@@ -92,6 +92,9 @@ class SARSAResponseFactory {
  public:
   SARSALearner* GetLearner() { return learner_.get(); }
 
+  SARSAResponseFactory(std::unique_ptr<SARSALearner> learner)
+      : learner_(std::move(learner)) {}
+
   virtual double Respond(
       CVC* cvc, Character* character, Action* action,
       std::vector<std::unique_ptr<Experience>>* actions) = 0;

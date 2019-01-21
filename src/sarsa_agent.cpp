@@ -102,10 +102,8 @@ SARSALearner::SARSALearner(double n, double g, std::vector<double> weights,
 
 void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   Action* action = experience->action_.get();
-  Action* next_action = experience->next_action_;
 
   assert(action);
-  assert(next_action);
 
   //SARSA-FA:
   //Q(s, a) = r + g * Q(s', a')
@@ -126,7 +124,7 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   //F(s, a) are the features that go with a
 
   //compute (estimate) the error
-  double truth_estimate = experience->reward_ + g_ * next_action->GetScore();
+  double truth_estimate = ComputeDiscountedRewards(experience);
   double d = truth_estimate - action->GetScore();
   assert(!std::isinf(d));
 
@@ -141,12 +139,12 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   // features
   // |
   // weights
-  learn_logger_->Log(
-      INFO, "%d\t%s\t%f\t%f\t%f\t%f\t|\t%f\t%f\t|\t%f\t%f\n",
-      cvc->Now(), action->GetActionId(), experience->reward_,
-      action->GetScore(), truth_estimate, d,
-      action->GetFeatureVector()[0], action->GetFeatureVector()[1],
-      weights_[0], weights_[1]);
+  learn_logger_->Log(INFO, "%d\t%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
+                     cvc->Now(), action->GetActionId(),
+                     experience->next_experience_->score_ - experience->score_,
+                     action->GetScore(), truth_estimate, d,
+                     action->GetFeatureVector()[0],
+                     action->GetFeatureVector()[1], weights_[0], weights_[1]);
 
   // assert(action->GetScore() == Score(action->GetFeatureVector()));
   // update the weights
@@ -162,6 +160,26 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   // according to Hendrickson, the difference between the old score and the new
   // one should be the error computed above times the learning rate
   //assert(action->GetScore() - Score(action->GetFeatureVector()) == d * n_);
+}
+
+double SARSALearner::ComputeDiscountedRewards(
+    const Experience* experience) const {
+  const Experience* e = experience;
+  assert(e->next_experience_);
+  double discounted_rewards = 0.0;
+  int i = 0;
+  while(e->next_experience_) {
+    // reward is diff between score after action plays out minus score at time
+    // of choosing action (this can get complicated if there's a bunch of other
+    // stuff going on at the same time)
+    double reward = e->next_experience_->score_ - e->score_;
+    //TODO: what does it mean if this->g_ != e->learner->g_ ?
+    discounted_rewards += pow(g_, i) * reward;
+    e = e->next_experience_;
+    i++;
+  }
+
+  return discounted_rewards + pow(g_, i) * e->action_->GetScore();
 }
 
 double SARSALearner::Score(const std::vector<double>& features) {
@@ -200,6 +218,7 @@ Action* SARSAAgent::ChooseAction(CVC* cvc) {
   next_action_ = policy_->ChooseAction(&actions, cvc, character_);
 
   //TODO: should really support other kinds of objectives than just money
+  //keep track of the current score at the time this action was chosen
   next_action_->score_ = Score(cvc);
 
   return next_action_->action_.get();
@@ -220,49 +239,34 @@ Action* SARSAAgent::Respond(CVC* cvc, Action* action) {
   }
 
   //3. choose
-  experience_queue_.front().push_back(policy_->ChooseAction(&actions, cvc, character_));
+  experience_queue_.front().push_back(
+      policy_->ChooseAction(&actions, cvc, character_));
 
   experience_queue_.front().back()->score_ = Score(cvc);
   return experience_queue_.front().back()->action_.get();
 }
 
 void SARSAAgent::Learn(CVC* cvc) {
-  // TODO: make the choice of how we're setting rewards and when we're learning
-  // more configurable
-  // ideally, rewards are character or agent dependent, vs just a global Score
-  // function on CVC
+  // we've just wrapped up a turn, so now is a good time to incorporate
+  // information about the reward we received this turn.
+  // 1. update rewards for all experiences (the learner does this when it
+  // learns)
 
-  //an experience's reward = sum_rewards_i=0...n ( g^i * reward_i)
-  //where reward_i = score_i+1 - score_i
-
-
-  //experiences get reward += g^age * newest reward
-
-  double current_score = Score(cvc);
-  int i = 0;
-  //TODO: verify this is right. this would be great to unit-test
-  //1. update rewards for all experiences
-  for (auto& experiences : experience_queue_) {
-    for (auto& experience : experiences) {
-      double next_reward = current_score - experience->score_;
-      experience->reward_ +=
-          pow(experience->learner_->GetDiscount(), i) * next_reward;
-      experience->next_action_ = next_action_->action_.get();
-      experience->score_ = current_score;
-    }
-    i++;
+  //set the next experience pointer on the latest experiences
+  for(auto& experience : experience_queue_.front()) {
+    experience->next_experience_ = next_action_.get();
   }
 
-  //2. learn if necessary
+  // 2. learn if necessary
   if(experience_queue_.size() == n_steps_) {
     for(auto& experience : experience_queue_.back()) {
       experience->learner_->Learn(cvc, experience.get());
     }
-    //toss the experiences we just learned from (at the back)
+    //toss the experiences from which we just learned (at the back)
     experience_queue_.pop_back();
   }
 
-  //set up space for the next batch of experiences
+  //set up space for the next batch of experiences (for the upcoming turn)
   experience_queue_.push_front(std::vector<std::unique_ptr<Experience>>());
 }
 

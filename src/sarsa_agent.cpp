@@ -184,7 +184,7 @@ Action* SARSAAgent::ChooseAction(CVC* cvc) {
   //if we have what was previously the next action, stick it in the set of
   //experiences
   if(next_action_) {
-    experiences_.push_back(std::move(next_action_));
+    experience_queue_.front().push_back(std::move(next_action_));
   }
 
   // list the choices of actions
@@ -220,22 +220,50 @@ Action* SARSAAgent::Respond(CVC* cvc, Action* action) {
   }
 
   //3. choose
-  experiences_.push_back(policy_->ChooseAction(&actions, cvc, character_));
+  experience_queue_.front().push_back(policy_->ChooseAction(&actions, cvc, character_));
 
-  experiences_.back()->score_ = Score(cvc);
-  return experiences_.back()->action_.get();
+  experience_queue_.front().back()->score_ = Score(cvc);
+  return experience_queue_.front().back()->action_.get();
 }
 
 void SARSAAgent::Learn(CVC* cvc) {
-  // TODO: consider n-step SARSA, or modify things to conisder just the n-step
-  // sequence of rewards (short-sighted learner)
-  for(auto& experience : experiences_) {
-    experience->reward_ = Score(cvc) - experience->score_;
-    experience->next_action_ = next_action_->action_.get();
-    experience->learner_->Learn(cvc, experience.get());
+  // TODO: make the choice of how we're setting rewards and when we're learning
+  // more configurable
+  // ideally, rewards are character or agent dependent, vs just a global Score
+  // function on CVC
+
+  //an experience's reward = sum_rewards_i=0...n ( g^i * reward_i)
+  //where reward_i = score_i+1 - score_i
+
+
+  //experiences get reward += g^age * newest reward
+
+  double current_score = Score(cvc);
+  int i = 0;
+  //TODO: verify this is right. this would be great to unit-test
+  //1. update rewards for all experiences
+  for (auto& experiences : experience_queue_) {
+    for (auto& experience : experiences) {
+      double next_reward = current_score - experience->score_;
+      experience->reward_ +=
+          pow(experience->learner_->GetDiscount(), i) * next_reward;
+      experience->next_action_ = next_action_->action_.get();
+      experience->score_ = current_score;
+    }
+    i++;
   }
 
-  experiences_.clear();
+  //2. learn if necessary
+  if(experience_queue_.size() == n_steps_) {
+    for(auto& experience : experience_queue_.back()) {
+      experience->learner_->Learn(cvc, experience.get());
+    }
+    //toss the experiences we just learned from (at the back)
+    experience_queue_.pop_back();
+  }
+
+  //set up space for the next batch of experiences
+  experience_queue_.push_front(std::vector<std::unique_ptr<Experience>>());
 }
 
 double SARSAAgent::Score(CVC* cvc) {

@@ -59,9 +59,11 @@ double AskActionFactory::EnumerateActions(
       continue;
     }
 
-    if(target->GetOpinionOf(character) < 0) {
+    // TODO: this is problematic if opinion is negative, it's hard to every get
+    // an ask action
+    /*if(target->GetOpinionOf(character) < 0) {
       continue;
-    }
+    }*/
 
     // pick the character that has the most money
     double money = target->GetMoney();

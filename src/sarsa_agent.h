@@ -6,6 +6,7 @@
 #include <random>
 #include <memory>
 #include <set>
+#include <deque>
 
 #include "action.h"
 #include "decision_engine.h"
@@ -61,6 +62,8 @@ class SARSALearner {
     return std::make_unique<Experience>(std::move(action), 0.0, 0.0, nullptr,
                                         this);
   }
+
+  double GetDiscount() const { return g_; }
 
  private:
   double n_; //learning rate
@@ -126,11 +129,16 @@ class SARSAAgent : public Agent {
              std::vector<SARSAActionFactory*> action_factories,
              std::unordered_map<std::string, std::set<SARSAResponseFactory*>>
                  response_factories,
-             SARSAActionPolicy* policy)
+             SARSAActionPolicy* policy, int n_steps)
       : Agent(character),
         action_factories_(action_factories),
         response_factories_(response_factories),
-        policy_(policy) {}
+        policy_(policy),
+        n_steps_(n_steps) {
+    // set up experience queue so the "current" set of experiences is an empty
+    // list
+    experience_queue_.push_back({});
+  }
 
   Action* ChooseAction(CVC* cvc) override;
 
@@ -148,7 +156,7 @@ class SARSAAgent : public Agent {
   SARSAActionPolicy* policy_;
 
   std::unique_ptr<Experience> next_action_ = nullptr;
-  std::vector<std::unique_ptr<Experience>> experiences_;
+  size_t n_steps_ = 10;
+  std::deque<std::vector<std::unique_ptr<Experience>>> experience_queue_;
 };
-
 #endif

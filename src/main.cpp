@@ -3,6 +3,7 @@
 #include <random>
 #include <vector>
 #include <unordered_map>
+#include <deque>
 
 #include "core.h"
 #include "decision_engine.h"
@@ -39,7 +40,10 @@ int main(int argc, char** argv) {
   AskResponseFactory rf;
 
   ProbDistPolicy pdp;
-  for(int i=0; i<5; i++) {
+
+  int num_heuristic_agents = 1;
+
+  for (int i = 0; i < num_heuristic_agents; i++) {
     c.push_back(std::make_unique<Character>(i, money_dist(random_generator)));
     characters.push_back(c.back().get());
     characters.back()->traits_[kBackground] = background_dist(random_generator);
@@ -49,9 +53,11 @@ int main(int argc, char** argv) {
     agents.push_back(a.back().get());
   }
 
-  double e = 0.1;
+  double e = 0.05;
   double n = 0.0001;
-  double g = 1.0;
+  double g = 0.8;
+  int n_steps = 10;
+  int num_learning_agents = 1;
 
   //learning agents
   FILE* learn_log = fopen("/tmp/learn_log", "a");
@@ -89,15 +95,16 @@ int main(int argc, char** argv) {
   //scf.ReadWeights();
   EpsilonGreedyPolicy egp(e);
   int num_non_learning_agents = agents.size();
-  for(int i=0; i<1; i++) {
+  for (int i = 0; i < num_learning_agents; i++) {
     c.push_back(std::make_unique<Character>(i + num_non_learning_agents,
                                             money_dist(random_generator)));
     characters.push_back(c.back().get());
     characters.back()->traits_[kBackground] = background_dist(random_generator);
     characters.back()->traits_[kLanguage] = language_dist(random_generator);
 
-    a.push_back(std::make_unique<SARSAAgent>(
-        characters.back(), sarsa_action_factories, sarsa_response_factories, &egp));
+    a.push_back(
+        std::make_unique<SARSAAgent>(characters.back(), sarsa_action_factories,
+                                     sarsa_response_factories, &egp, n_steps));
     agents.push_back(a.back().get());
   }
 

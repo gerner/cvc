@@ -6,6 +6,7 @@
 #include <random>
 #include <memory>
 #include <set>
+#include <deque>
 
 #include "action.h"
 #include "decision_engine.h"
@@ -13,20 +14,18 @@
 class SARSALearner;
 
 struct Experience {
-  Experience(std::unique_ptr<Action>&& action, double score, double reward,
-             Action* next_action, SARSALearner* learner)
+  Experience(std::unique_ptr<Action>&& action, double score,
+             Experience* next_experience, SARSALearner* learner)
       : action_(std::move(action)),
         score_(score),
-        reward_(reward),
-        next_action_(next_action),
+        next_experience_(next_experience),
         learner_(learner) {}
 
   std::unique_ptr<Action> action_; //the action we took (or will take)
   double score_; //score at the time we chose the action
-  double reward_; //the reward from taking this action
   // TODO: do we really need the next action? or is it sufficient to simply have
   // a prediction of the future score from here?
-  Action* next_action_; //the next action we'll take
+  Experience* next_experience_; //the next action we'll take
 
   SARSALearner* learner_;
 };
@@ -40,6 +39,7 @@ class SARSALearner {
   static void WriteWeights(
       const char* weight_file,
       std::unordered_map<std::string, SARSALearner*> learners);
+
 
   //creates a randomly initialized learner
   static std::unique_ptr<SARSALearner> Create(double n, double g,
@@ -56,9 +56,10 @@ class SARSALearner {
   void ReadWeights(FILE* weights_file);
 
   double Score(const std::vector<double>& features);
+  double ComputeDiscountedRewards(const Experience* experience) const;
 
   std::unique_ptr<Experience> WrapAction(std::unique_ptr<Action> action) {
-    return std::make_unique<Experience>(std::move(action), 0.0, 0.0, nullptr,
+    return std::make_unique<Experience>(std::move(action), 0.0, nullptr,
                                         this);
   }
 
@@ -126,11 +127,16 @@ class SARSAAgent : public Agent {
              std::vector<SARSAActionFactory*> action_factories,
              std::unordered_map<std::string, std::set<SARSAResponseFactory*>>
                  response_factories,
-             SARSAActionPolicy* policy)
+             SARSAActionPolicy* policy, int n_steps)
       : Agent(character),
         action_factories_(action_factories),
         response_factories_(response_factories),
-        policy_(policy) {}
+        policy_(policy),
+        n_steps_(n_steps) {
+    // set up experience queue so the "current" set of experiences is an empty
+    // list
+    experience_queue_.push_back({});
+  }
 
   Action* ChooseAction(CVC* cvc) override;
 
@@ -148,7 +154,7 @@ class SARSAAgent : public Agent {
   SARSAActionPolicy* policy_;
 
   std::unique_ptr<Experience> next_action_ = nullptr;
-  std::vector<std::unique_ptr<Experience>> experiences_;
+  size_t n_steps_ = 10;
+  std::deque<std::vector<std::unique_ptr<Experience>>> experience_queue_;
 };
-
 #endif

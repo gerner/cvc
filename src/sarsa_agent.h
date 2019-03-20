@@ -85,6 +85,30 @@ class SARSAActionFactory {
       std::vector<std::unique_ptr<Experience>>* actions) = 0;
 
  protected:
+
+  std::vector<double> Features(CVC* cvc, Character* character) const {
+    return std::vector<double>({
+        1.0, //bias
+        log(character->GetMoney()),
+        log(cvc->GetMoneyStats().mean_),
+        cvc->GetOpinionStats().mean_/100.0,
+        cvc->GetOpinionByStats(character->GetId()).mean_/100.0,
+        cvc->GetOpinionOfStats(character->GetId()).mean_/100.0});
+  }
+
+  std::vector<double> TargetFeatures(CVC* cvc, Character* character,
+                                     Character* target) const {
+    std::vector<double> features = Features(cvc, character);
+    std::vector<double> target_features({
+        character->GetOpinionOf(target)/100.0,
+        target->GetOpinionOf(character)/100.0,
+        log(target->GetMoney()),
+        1.0}); //TODO: should be relationship between character and target money
+    features.insert(features.end(), target_features.begin(),
+                    target_features.end());
+    return features;
+  }
+
   std::unique_ptr<SARSALearner> learner_;
 };
 
@@ -100,6 +124,29 @@ class SARSAResponseFactory {
       CVC* cvc, Character* character, Action* action,
       std::vector<std::unique_ptr<Experience>>* actions) = 0;
  protected:
+  std::vector<double> Features(CVC* cvc, Character* character) const {
+    return std::vector<double>({
+        1.0, //bias
+        log(character->GetMoney()),
+        log(cvc->GetMoneyStats().mean_),
+        cvc->GetOpinionStats().mean_/100.0,
+        cvc->GetOpinionByStats(character->GetId()).mean_/100.0,
+        cvc->GetOpinionOfStats(character->GetId()).mean_/100.0});
+  }
+
+  std::vector<double> TargetFeatures(CVC* cvc, Character* character,
+                                     Character* target) const {
+    std::vector<double> features = Features(cvc, character);
+    std::vector<double> target_features({
+        character->GetOpinionOf(target)/100.0,
+        target->GetOpinionOf(character)/100.0,
+        log(target->GetMoney()),
+        1.0}); //TODO: should be relationship between character and target money
+    features.insert(features.end(), target_features.begin(),
+                    target_features.end());
+    return features;
+  }
+
   std::unique_ptr<SARSALearner> learner_;
 };
 
@@ -143,10 +190,9 @@ class SARSAAgent : public Agent {
   Action* Respond(CVC* cvc, Action* action) override;
 
   void Learn(CVC* cvc) override;
+  double Score(CVC* cvc) override;
 
  private:
-
-  double Score(CVC* cvc);
 
   std::vector<SARSAActionFactory*> action_factories_;
   std::unordered_map<std::string, std::set<SARSAResponseFactory*>>

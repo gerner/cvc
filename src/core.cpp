@@ -117,8 +117,8 @@ void CVC::LogState() {
   for (auto character : this->characters_) {
     const Stats& by_stats = GetOpinionByStats(character->GetId());
     const Stats& of_stats = GetOpinionOfStats(character->GetId());
-    logger_->Log(INFO, "%d	%f	%f (%f)	%f (%f)\n", character->GetId(),
-                 character->GetMoney(), by_stats.mean_, by_stats.stdev_,
+    logger_->Log(INFO, "%d	%f	%f	%f (%f)	%f (%f)\n", character->GetId(),
+                 character->GetScore(), character->GetMoney(), by_stats.mean_, by_stats.stdev_,
                  of_stats.mean_, of_stats.stdev_);
   }
 }
@@ -174,50 +174,36 @@ void CVC::ExpireRelationships() {
 }
 
 void CVC::ComputeStats() {
-  double global_opinion_ss = 0.0;
-  double global_opinion_sum = 0.0;
-  double global_money_ss = 0.0;
-  double global_money_sum = 0.0;
-  for (auto character : characters_) {
-    double of_ss = 0.0;
-    double of_sum = 0.0;
-    double by_ss = 0.0;
-    double by_sum = 0.0;
+  global_opinion_stats_.Clear();
+  global_money_stats_.Clear();
 
-    global_money_ss += character->GetMoney() * character->GetMoney();
-    global_money_sum += character->GetMoney();
+  for (auto character : characters_) {
+    global_money_stats_.Update(character->GetMoney());
+    Stats& opinion_of_stat = opinion_of_stats_[character->GetId()];
+    Stats& opinion_by_stat = opinion_by_stats_[character->GetId()];
 
     for (auto target : characters_) {
+      //TODO: convert to Stats::Update and Stats::ComputeStats
+
       //skip self opinion
       if (character->GetId() == target->GetId()) {
         continue;
       }
+
       double opinion_of = target->GetFreshOpinionOf(character);
-      //only count of for global, we'll get the reflexive case later
-      global_opinion_ss += opinion_of * opinion_of;
-      global_opinion_sum += opinion_of;
-
-      of_ss += opinion_of * opinion_of;
-      of_sum += opinion_of;
-
       // it's convenient to compute this now, the cost is ammortized since it's
       // cached
       double opinion_by = character->GetFreshOpinionOf(target);
-      by_ss += opinion_by * opinion_by;
-      by_sum += opinion_by;
+
+      //only count of for global, we'll get the reflexive case later
+      global_opinion_stats_.Update(opinion_of);
+      opinion_of_stat.Update(opinion_of);
+      opinion_by_stat.Update(opinion_by);
     }
 
-    //exclude the self character when setting n here
-    opinion_of_stats_[character->GetId()].ComputeStats(of_sum, of_ss,
-                                                      characters_.size()-1);
-    opinion_by_stats_[character->GetId()].ComputeStats(by_sum, by_ss,
-                                                      characters_.size()-1);
+    opinion_of_stat.ComputeStats();
+    opinion_by_stat.ComputeStats();
   }
-  global_opinion_stats_.ComputeStats(
-      global_opinion_sum, global_opinion_ss,
-      characters_.size() * characters_.size() - characters_.size());
-  global_money_stats_.ComputeStats(global_money_sum, global_money_ss,
-                                   characters_.size());
+  global_opinion_stats_.ComputeStats();
+  global_money_stats_.ComputeStats();
 }
-
-

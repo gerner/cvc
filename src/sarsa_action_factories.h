@@ -85,7 +85,8 @@ class SARSATrivialActionFactory : public SARSAActionFactory {
 
 class EpsilonGreedyPolicy : public SARSAActionPolicy {
  public:
-  EpsilonGreedyPolicy(double epsilon) : epsilon_(epsilon){};
+  EpsilonGreedyPolicy(double epsilon, Logger* logger)
+      : epsilon_(epsilon), logger_(logger){};
 
   std::unique_ptr<Experience> ChooseAction(
       std::vector<std::unique_ptr<Experience>>* actions, CVC* cvc,
@@ -93,6 +94,7 @@ class EpsilonGreedyPolicy : public SARSAActionPolicy {
 
  private:
   double epsilon_;
+  Logger* logger_;
 };
 
 #endif

@@ -99,6 +99,12 @@ void DecisionEngine::EvaluateQueuedActions() {
   if (action_log_) {
     fflush(action_log_);
   }
+
+  //convenient place to score all the characters
+  for (Agent* agent : agents_) {
+    agent->GetCharacter()->SetScore(agent->Score(cvc_));
+  }
+
 }
 
 void DecisionEngine::ChooseActions() {

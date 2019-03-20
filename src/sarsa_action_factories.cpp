@@ -13,7 +13,7 @@
 std::unique_ptr<SARSATrivialActionFactory> SARSATrivialActionFactory::Create(
     double n, double g, std::mt19937& random_generator, Logger* learn_logger) {
   return std::make_unique<SARSATrivialActionFactory>(
-      SARSALearner::Create(n, g, random_generator, 2, learn_logger));
+      SARSALearner::Create(n, g, random_generator, 6, learn_logger));
 }
 
 SARSATrivialActionFactory::SARSATrivialActionFactory(
@@ -30,7 +30,8 @@ double SARSATrivialActionFactory::EnumerateActions(
        cvc->GetOpinionByStats(character->GetId()).stdev_,
        cvc->GetOpinionOfStats(character->GetId()).mean_,
        cvc->GetOpinionOfStats(character->GetId()).stdev_});*/
-  std::vector<double> features({1.0, log(character->GetMoney())});
+  //std::vector<double> features({1.0, log(character->GetMoney())});
+  std::vector<double> features = Features(cvc, character);
   double score = learner_->Score(features);
   actions->push_back(learner_->WrapAction(
       std::make_unique<TrivialAction>(character, score, features)));
@@ -40,10 +41,11 @@ double SARSATrivialActionFactory::EnumerateActions(
 std::unique_ptr<SARSAGiveActionFactory> SARSAGiveActionFactory::Create(
     double n, double g, std::mt19937& random_generator, Logger* learn_logger) {
   return std::make_unique<SARSAGiveActionFactory>(
-      SARSALearner::Create(n, g, random_generator, 2, learn_logger));
+      SARSALearner::Create(n, g, random_generator, 10, learn_logger));
 }
 
-SARSAGiveActionFactory::SARSAGiveActionFactory(std::unique_ptr<SARSALearner> learner)
+SARSAGiveActionFactory::SARSAGiveActionFactory(
+    std::unique_ptr<SARSALearner> learner)
     : SARSAActionFactory(std::move(learner)) {}
 
 double SARSAGiveActionFactory::EnumerateActions(
@@ -69,7 +71,7 @@ double SARSAGiveActionFactory::EnumerateActions(
            cvc->GetOpinionOfStats(character->GetId()).stdev_,
            character->GetOpinionOf(target), target->GetOpinionOf(character),
            target->GetMoney()});*/
-      std::vector<double> features({1.0, target->GetOpinionOf(character)});
+      std::vector<double> features = TargetFeatures(cvc, character, target);
       double score = learner_->Score(features);
       if(score > best_score) {
         best_score = score;
@@ -90,7 +92,7 @@ double SARSAGiveActionFactory::EnumerateActions(
 std::unique_ptr<SARSAAskActionFactory> SARSAAskActionFactory::Create(
     double n, double g, std::mt19937& random_generator, Logger* learn_logger) {
   return std::make_unique<SARSAAskActionFactory>(
-      SARSALearner::Create(n, g, random_generator, 2, learn_logger));
+      SARSALearner::Create(n, g, random_generator, 10, learn_logger));
 }
 
 SARSAAskActionFactory::SARSAAskActionFactory(std::unique_ptr<SARSALearner> learner)
@@ -123,7 +125,7 @@ double SARSAAskActionFactory::EnumerateActions(
          cvc->GetOpinionOfStats(character->GetId()).stdev_,
          character->GetOpinionOf(target), target->GetOpinionOf(character),
          target->GetMoney()});*/
-    std::vector<double> features({1.0, target->GetOpinionOf(character)});
+    std::vector<double> features = TargetFeatures(cvc, character, target);
     double score = learner_->Score(features);
     if(score > best_score) {
       best_score = score;
@@ -144,7 +146,7 @@ SARSAAskSuccessResponseFactory::Create(double n, double g,
                                        std::mt19937& random_generator,
                                        Logger* learn_logger) {
   return std::make_unique<SARSAAskSuccessResponseFactory>(
-      SARSALearner::Create(n, g, random_generator, 2, learn_logger));
+      SARSALearner::Create(n, g, random_generator, 10, learn_logger));
 }
 
 SARSAAskSuccessResponseFactory::SARSAAskSuccessResponseFactory(
@@ -156,12 +158,13 @@ double SARSAAskSuccessResponseFactory::Respond(
     std::vector<std::unique_ptr<Experience>>* actions) {
   //action->GetTarget() is asking us for action->GetRequestAmount() money
   AskAction* ask_action = (AskAction*)action;
+
   if(character->GetMoney() < ask_action->GetRequestAmount()) {
     return 0.0;
   }
 
-  std::vector<double> features(
-      {1.0, ask_action->GetTarget()->GetOpinionOf(character)});
+  std::vector<double> features =
+      TargetFeatures(cvc, character, ask_action->GetTarget());
   double score = learner_->Score(features);
   actions->push_back(learner_->WrapAction(std::make_unique<AskSuccessAction>(
       character, score, features, ask_action->GetActor(), ask_action)));
@@ -173,7 +176,7 @@ SARSAAskFailureResponseFactory::Create(double n, double g,
                                        std::mt19937& random_generator,
                                        Logger* learn_logger) {
   return std::make_unique<SARSAAskFailureResponseFactory>(
-      SARSALearner::Create(n, g, random_generator, 2, learn_logger));
+      SARSALearner::Create(n, g, random_generator, 10, learn_logger));
 }
 
 SARSAAskFailureResponseFactory::SARSAAskFailureResponseFactory(
@@ -186,8 +189,8 @@ double SARSAAskFailureResponseFactory::Respond(
   //action->GetTarget() is asking us for action->GetRequestAmount() money
   AskAction* ask_action = (AskAction*)action;
 
-  std::vector<double> features(
-      {1.0, ask_action->GetTarget()->GetOpinionOf(character)});
+  std::vector<double> features =
+      TargetFeatures(cvc, character, ask_action->GetTarget());
   double score = learner_->Score(features);
   actions->push_back(learner_->WrapAction(std::make_unique<TrivialResponse>(
       character, score, features)));
@@ -197,7 +200,7 @@ double SARSAAskFailureResponseFactory::Respond(
 std::unique_ptr<SARSAWorkActionFactory> SARSAWorkActionFactory::Create(
     double n, double g, std::mt19937& random_generator, Logger* learn_logger) {
   return std::make_unique<SARSAWorkActionFactory>(
-      SARSALearner::Create(n, g, random_generator, 2, learn_logger));
+      SARSALearner::Create(n, g, random_generator, 6, learn_logger));
 }
 
 SARSAWorkActionFactory::SARSAWorkActionFactory(std::unique_ptr<SARSALearner> learner)
@@ -213,7 +216,7 @@ double SARSAWorkActionFactory::EnumerateActions(
        cvc->GetOpinionByStats(character->GetId()).stdev_,
        cvc->GetOpinionOfStats(character->GetId()).mean_,
        cvc->GetOpinionOfStats(character->GetId()).stdev_});*/
-  std::vector<double> features({1.0, log(character->GetMoney())});
+  std::vector<double> features = Features(cvc, character);
   double score = learner_->Score(features);
   actions->push_back(learner_->WrapAction(
       std::make_unique<WorkAction>(character, score, features)));
@@ -230,21 +233,31 @@ std::unique_ptr<Experience> EpsilonGreedyPolicy::ChooseAction(
 
   //best or random?
   std::uniform_real_distribution<> dist(0.0, 1.0);
+  double e = dist(*cvc->GetRandomGenerator());
+  double best_score = std::numeric_limits<double>::lowest();
+  std::unique_ptr<Experience>* best_action = nullptr;
   if(dist(*cvc->GetRandomGenerator()) > epsilon_) {
+    logger_->Log(INFO, "choosing best (%f > %f)\n", e, epsilon_);
     //best choice
-    double best_score = std::numeric_limits<double>::lowest();
-    std::unique_ptr<Experience>* best_action = nullptr;
     for(std::unique_ptr<Experience>& experience : *actions) {
+      logger_->Log(INFO, "option %s with score %f\n",
+                   experience->action_->GetActionId(),
+                   experience->action_->GetScore());
       if(experience->action_->GetScore() > best_score) {
         best_score = experience->action_->GetScore();
         best_action = &experience;
       }
     }
-    assert(best_action);
-    return std::move(*best_action);
   } else {
+    logger_->Log(INFO, "choosing random (%f >= %f)\n", e, epsilon_);
     //random choice
-    return std::move((*actions)[dist(*cvc->GetRandomGenerator()) * actions->size()]);
+    int choice = dist(*cvc->GetRandomGenerator()) * actions->size();
+    best_score = (*actions)[choice]->action_->GetScore();
+    best_action = &(*actions)[choice];
   }
+  assert(best_action);
+  logger_->Log(INFO, "chose %s with score %f\n",
+               (*best_action)->action_->GetActionId(), best_score);
+  return std::move(*best_action);
 }
 

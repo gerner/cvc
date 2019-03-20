@@ -89,7 +89,7 @@ std::unique_ptr<SARSALearner> SARSALearner::Create(double n, double g,
   std::vector<double> weights;
 
   std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
-  for (size_t i = 0; i < 2; i++) {
+  for (size_t i = 0; i < num_features; i++) {
     weights.push_back(weight_dist(random_generator));
   }
 
@@ -104,8 +104,10 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   Action* action = experience->action_.get();
 
   assert(action);
+  double updated_score = Score(action->GetFeatureVector());
 
   //SARSA-FA:
+  //from https://artint.info/html/ArtInt_272.html
   //Q(s, a) = r + g * Q(s', a')
   //where Q(s, a) was estimated
   //we had some error on that which we can gradient descend
@@ -122,10 +124,22 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   //Q(s', a') is the score of a' (current estimate of future score)
   //w are the weights that were used to choose a
   //F(s, a) are the features that go with a
+  //
+  //estimate of score (y_hat) is
+  //y_hat = sum_i(w_i * x_i)
+  //where x_0 = 1 (bias term)
+  //
+  //Loss function is
+  //(y_hat - y)^2 (squared error)
+  //d_(y_hat) = 2 * (y_hat - y)
+  //d_(w_i) = x_i
+  //
+  //weight update is
+  //w_i <- w_i - n *( d_L/d_(y_hat) * d_(y_hat)/d_(w_i) )
 
-  //compute (estimate) the error
+  //compute (estimate) the partial derivative w.r.t. score
   double truth_estimate = ComputeDiscountedRewards(experience);
-  double d = truth_estimate - action->GetScore();
+  double d = 2 * (updated_score - truth_estimate);//action->GetScore();
   assert(!std::isinf(d));
 
   //log:
@@ -142,17 +156,32 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   learn_logger_->Log(INFO, "%d\t%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
                      cvc->Now(), action->GetActionId(),
                      experience->next_experience_->score_ - experience->score_,
-                     action->GetScore(), truth_estimate, d,
+                     updated_score, truth_estimate, d,
                      action->GetFeatureVector()[0],
                      action->GetFeatureVector()[1], weights_[0], weights_[1]);
 
-  // assert(action->GetScore() == Score(action->GetFeatureVector()));
+  //this might not be the case if someone has changed the weights since we 
+  //TODO: there's something broken here, especially in the case of n-step and multiple agents sharing models
+  //assert(action->GetScore() == Score(action->GetFeatureVector()));
   // update the weights
   assert(action->GetFeatureVector().size() == weights_.size());
+  double n = n_ / (double)(action->GetFeatureVector().size());
+  double sum_d = 0.0;
   for(size_t i = 0; i < action->GetFeatureVector().size(); i++) {
-    double weight_update = n_ * d * action->GetFeatureVector()[i];
-    weights_[i] = weights_[i] + weight_update;
+    double weight_update = n * d * action->GetFeatureVector()[i];
+    weights_[i] = weights_[i] - weight_update;
+    sum_d += d * action->GetFeatureVector()[i];
   }
+
+  double new_score = Score(action->GetFeatureVector());
+  learn_logger_->Log(INFO, "after update:\t%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
+                     action->GetActionId(), new_score, updated_score,
+                     truth_estimate, (new_score - updated_score), d,
+                     (new_score - updated_score) / d, n);
+
+  // ideally we don't overshoot, but it's technically possible
+  /*assert((updated_score - truth_estimate) * (updated_score - truth_estimate) >
+         (new_score - truth_estimate) * (new_score - truth_estimate));*/
 
   // check that we are doing it right:
   // error should get smaller
@@ -179,7 +208,7 @@ double SARSALearner::ComputeDiscountedRewards(
     i++;
   }
 
-  return discounted_rewards + pow(g_, i) * e->action_->GetScore();
+  return discounted_rewards + pow(g_, i) * e->learner_->Score(e->action_->GetFeatureVector());
 }
 
 double SARSALearner::Score(const std::vector<double>& features) {
@@ -225,6 +254,9 @@ Action* SARSAAgent::ChooseAction(CVC* cvc) {
 }
 
 Action* SARSAAgent::Respond(CVC* cvc, Action* action) {
+  assert(action->GetActor() != character_);
+  assert(action->GetTarget() == character_);
+
   //1. find the appropriate response factory
   assert(response_factories_.find(action->GetActionId()) !=
          response_factories_.end());
@@ -271,7 +303,21 @@ void SARSAAgent::Learn(CVC* cvc) {
 }
 
 double SARSAAgent::Score(CVC* cvc) {
-  //TODO: should really support other kinds of objectives than just money
+  //TODO: maybe abstract this?
+  //agent wants to make (and have) lots of money
   return character_->GetMoney();
+
+  //return -abs(10000 - character_->GetMoney());
+
+  //agent wants to have more money than average
+  //return character_->GetMoney() - cvc->GetMoneyStats().max_;
+
+  //return character_->GetMoney() / cvc->GetMoneyStats().mean_;
+
+  //agent wants everyone to like them at least a little
+  //return cvc->GetOpinionOfStats(GetCharacter()->GetId()).min_;
+
+  //agent wants to be liked more than average
+  //return cvc->GetOpinionOfStats(GetCharacter()->GetId()).mean_ - cvc->GetOpinionStats().mean_;
 }
 

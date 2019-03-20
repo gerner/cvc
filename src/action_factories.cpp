@@ -88,7 +88,7 @@ double AskResponseFactory::Respond(
 
   // check to see if the target will accept
   // opinion < 0 => no, otherwise some distribution improves with opinion
-  double opinion = ask_action->GetTarget()->GetOpinionOf(ask_action->GetActor());
+  double opinion = ask_action->GetTarget()->GetOpinionOf(ask_action->GetActor())/100.0;
   std::uniform_real_distribution<> dist(0.0, 1.0);
   bool success = false;
   if (opinion > 0.0 && dist(*cvc->GetRandomGenerator()) <
@@ -121,7 +121,7 @@ double WorkActionFactory::EnumerateActions(
   for (Character* target : cvc->GetCharacters()) {
     if(target->GetOpinionOf(character) > 0.0) {
       actions->push_back(
-          std::make_unique<WorkAction>(character, 0.3, std::vector<double>()));
+          std::make_unique<WorkAction>(character, 0.1, std::vector<double>()));
       return 0.3;
     }
   }
@@ -178,5 +178,6 @@ std::unique_ptr<Action> ProbDistPolicy::ChooseAction(
     }
   }
   assert(false);
+  abort();
 }
 

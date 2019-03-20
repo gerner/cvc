@@ -46,12 +46,41 @@ struct Stats {
   double mean_;
   double stdev_;
   int n_ = 0;
+  double sum_ = 0.0;
+  double ss_ = 0.0;
+  double min_ = std::numeric_limits<double>::max();
+  double max_ = std::numeric_limits<double>::min();
+
+  void Clear() {
+    n_ = 0;
+    sum_ = 0.0;
+    ss_ = 0.0;
+    min_ = std::numeric_limits<double>::max();
+    max_ = std::numeric_limits<double>::min();
+  }
+
+  void Update(double datum) {
+    sum_ += datum;
+    ss_ += datum * datum;
+    if(datum < min_) {
+      min_ = datum;
+    }
+    if(datum > max_) {
+      max_ = datum;
+    }
+    n_++;
+  }
 
   void ComputeStats(double sum, double ss, int n) {
     n_ = n;
     mean_ = sum / (double)n_;
     stdev_ = sqrt(ss / (double)n_ - (mean_ * mean_));
   }
+
+  void ComputeStats() {
+    ComputeStats(sum_, ss_, n_);
+  }
+
 };
 
 enum CharacterTraitId {
@@ -78,12 +107,13 @@ struct RelationshipModifier {
 class Character {
  public:
   Character(CharacterId id, double money_);
-
   CharacterId GetId() const { return this->id_; }
 
   double GetMoney() const { return this->money_; }
-
   void SetMoney(double money) { this->money_ = money; }
+
+  double GetScore() const { return this->score_; }
+  void SetScore(double score) { this->score_ = score; }
 
   void AddRelationship(std::unique_ptr<RelationshipModifier> relationship);
   void ExpireRelationships(int now);
@@ -95,6 +125,8 @@ class Character {
  private:
   int id_;
   double money_;
+  double score_;
+
   std::unordered_map<CharacterId, std::list<std::unique_ptr<RelationshipModifier>>>
       relationships_;
 

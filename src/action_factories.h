@@ -56,14 +56,22 @@ class HeuristicAgent : public Agent {
 
   Action* Respond(CVC* cvc, Action* action) override {
      //TODO: heuristic response TBD
-     responses_.push_back(std::make_unique<TrivialAction>(character_, 0.0,
-                                         std::vector<double>({})));
+     /*responses_.push_back(std::make_unique<TrivialAction>(character_, 0.0,
+                                         std::vector<double>({})));*/
+     //TODO: handle responses to different kinds of actions
+     std::vector<std::unique_ptr<Action>> actions;
+     response_factory_->Respond(cvc, character_, action, &actions);
+     responses_.push_back(policy_->ChooseAction(&actions, cvc, character_));
      return responses_.back().get();
   }
 
   // no learning on the heuristic agent
   void Learn(CVC* cvc) override {
     responses_.clear();
+  }
+
+  double Score(CVC* cvc) override {
+    return character_->GetMoney();
   }
 
  private:

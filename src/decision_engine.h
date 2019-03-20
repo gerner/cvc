@@ -32,6 +32,7 @@ class Agent {
   virtual Action* ChooseAction(CVC* cvc) = 0;
   virtual Action* Respond(CVC* cvc, Action* action) = 0;
   virtual void Learn(CVC* cvc) = 0;
+  virtual double Score(CVC* cvc) = 0;
 
   Character* GetCharacter() const { return character_; }
 

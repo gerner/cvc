@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
 
   ProbDistPolicy pdp;
 
-  int num_heuristic_agents = 1;
+  int num_heuristic_agents = 5;
 
   for (int i = 0; i < num_heuristic_agents; i++) {
     c.push_back(std::make_unique<Character>(i, money_dist(random_generator)));
@@ -49,25 +49,30 @@ int main(int argc, char** argv) {
     characters.back()->traits_[kBackground] = background_dist(random_generator);
     characters.back()->traits_[kLanguage] = language_dist(random_generator);
 
-    a.push_back(std::make_unique<HeuristicAgent>(characters.back(), &cf, &rf, &pdp));
+    a.push_back(
+        std::make_unique<HeuristicAgent>(characters.back(), &cf, &rf, &pdp));
     agents.push_back(a.back().get());
   }
 
   double e = 0.05;
   double n = 0.0001;
   double g = 0.8;
-  int n_steps = 10;
-  int num_learning_agents = 1;
+  int n_steps = 100;
+  int num_learning_agents = 5;
 
   //learning agents
-  FILE* learn_log = fopen("/tmp/learn_log", "a");
-  setvbuf(learn_log, NULL, _IOLBF, 1024*10);
+  FILE* learn_log = NULL;//fopen("/tmp/learn_log", "a");
+  //setvbuf(learn_log, NULL, _IOLBF, 1024*10);
   Logger give_learn_logger("learn_give", learn_log);
   Logger ask_learn_logger("learn_ask", learn_log);
   Logger ask_success_learn_logger("learn_ask_success", learn_log);
   Logger ask_failure_learn_logger("learn_ask_failure", learn_log);
   Logger trivial_learn_logger("learn_trivial", learn_log);
   Logger work_learn_logger("learn_work", learn_log);
+
+  FILE* policy_log = NULL;//fopen("/tmp/policy_log", "a");
+  //setvbuf(policy_log, NULL, _IOLBF, 1024*10);
+  Logger policy_logger("policy", policy_log);
 
   std::unique_ptr<SARSAGiveActionFactory> sgaf = SARSAGiveActionFactory::Create(
       n, g, random_generator, &give_learn_logger);
@@ -81,6 +86,8 @@ int main(int argc, char** argv) {
 
   std::vector<SARSAActionFactory*> sarsa_action_factories({
       sgaf.get(), saaf.get(), swaf.get(), staf.get()});
+  /*std::vector<SARSAActionFactory*> sarsa_action_factories({
+      staf.get(), swaf.get()});*/
 
   std::unique_ptr<SARSAAskSuccessResponseFactory> asrf =
       SARSAAskSuccessResponseFactory::Create(n, g, random_generator,
@@ -93,7 +100,7 @@ int main(int argc, char** argv) {
       sarsa_response_factories({{"AskAction", {asrf.get(), afrf.get()}}});
 
   //scf.ReadWeights();
-  EpsilonGreedyPolicy egp(e);
+  EpsilonGreedyPolicy egp(e, &policy_logger);
   int num_non_learning_agents = agents.size();
   for (int i = 0; i < num_learning_agents; i++) {
     c.push_back(std::make_unique<Character>(i + num_non_learning_agents,
@@ -131,6 +138,7 @@ int main(int argc, char** argv) {
 
   fclose(action_log);
   fclose(learn_log);
+  fclose(policy_log);
 
   return 0;
 }

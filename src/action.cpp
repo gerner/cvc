@@ -54,16 +54,17 @@ WorkAction::WorkAction(Character* actor, double score,
     : Action(__FUNCTION__, actor, score, features) {}
 
 bool WorkAction::IsValid(const CVC* gamestate) { 
+  return true;
   //there has to be at least one character with positive opinion
   //consider that this character "sponsors" this character
-  bool positive_opinion_exists = false;
+  /*bool positive_opinion_exists = false;
   for (Character* character : gamestate->GetCharacters()) {
     if (character->GetOpinionOf(GetActor()) > 0.0) {
       positive_opinion_exists = true;
       break;
     }
   }
-  return positive_opinion_exists;
+  return positive_opinion_exists;*/
 }
 
 void WorkAction::TakeEffect(CVC* gamestate) {
@@ -198,7 +199,7 @@ void GiveAction::TakeEffect(CVC* gamestate) {
   // increase opinion of target (got money)
   double opinion_buff = this->gift_amount_;
   this->GetTarget()->AddRelationship(std::make_unique<RelationshipModifier>(
-      this->GetActor(), gamestate->Now(), gamestate->Now() + 10, opinion_buff));
+      this->GetActor(), gamestate->Now(), gamestate->Now() + 200, opinion_buff));
 
   SetReward(-gift_amount_);
   gamestate->GetLogger()->Log(

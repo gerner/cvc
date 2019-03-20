@@ -55,7 +55,7 @@ TEST_F(SarsaAgentTest, TestExperienceRewards) {
   //
   //fully discounted rewards: 2.5 + 0.8 * 2.5 + 0.8^2 * 5.0 + 0.8^3 3.7
 
-  double expected_rewards = 2.5 + 0.8 * 2.5 + 0.8*0.8*5.0 + learner_->Score(e4.action_->GetFeatureVector());
+  double expected_rewards = 2.5 + 0.8 * 2.5 + 0.8*0.8*5.0 + 0.8*0.8*0.8*learner_->Score(e4.action_->GetFeatureVector());
   double rewards = learner_->ComputeDiscountedRewards(&e1);
   EXPECT_DOUBLE_EQ(expected_rewards, rewards);
 }

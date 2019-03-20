@@ -55,14 +55,16 @@ int main(int argc, char** argv) {
   }
 
   double e = 0.05;
-  double n = 0.0001;
+  double n = 0.001;
+  double b1 = 0.9;
+  double b2 = 0.999;
   double g = 0.8;
   int n_steps = 100;
   int num_learning_agents = 5;
 
   //learning agents
-  FILE* learn_log = NULL;//fopen("/tmp/learn_log", "a");
-  //setvbuf(learn_log, NULL, _IOLBF, 1024*10);
+  FILE* learn_log = fopen("/tmp/learn_log", "a");
+  setvbuf(learn_log, NULL, _IOLBF, 1024*10);
   Logger give_learn_logger("learn_give", learn_log);
   Logger ask_learn_logger("learn_ask", learn_log);
   Logger ask_success_learn_logger("learn_ask_success", learn_log);
@@ -74,15 +76,18 @@ int main(int argc, char** argv) {
   setvbuf(policy_log, NULL, _IOLBF, 1024*10);
   Logger policy_logger("policy", policy_log);
 
-  std::unique_ptr<SARSAGiveActionFactory> sgaf = SARSAGiveActionFactory::Create(
-      n, g, random_generator, &give_learn_logger);
+  std::unique_ptr<SARSAGiveActionFactory> sgaf =
+      SARSAGiveActionFactory::Create(SARSALearner::Create(
+          n, g, b1, b2, random_generator, 10, &give_learn_logger));
   std::unique_ptr<SARSAAskActionFactory> saaf =
-      SARSAAskActionFactory::Create(n, g, random_generator, &ask_learn_logger);
+      SARSAAskActionFactory::Create(SARSALearner::Create(
+          n, g, b1, b2, random_generator, 10, &ask_learn_logger));
   std::unique_ptr<SARSATrivialActionFactory> staf =
-      SARSATrivialActionFactory::Create(n, g, random_generator,
-                                        &trivial_learn_logger);
-  std::unique_ptr<SARSAWorkActionFactory> swaf = SARSAWorkActionFactory::Create(
-      n, g, random_generator, &work_learn_logger);
+      SARSATrivialActionFactory::Create(SARSALearner::Create(
+          n, g, b1, b2, random_generator, 6, &trivial_learn_logger));
+  std::unique_ptr<SARSAWorkActionFactory> swaf =
+      SARSAWorkActionFactory::Create(SARSALearner::Create(
+          n, g, b1, b2, random_generator, 6, &work_learn_logger));
 
   std::vector<SARSAActionFactory*> sarsa_action_factories({
       sgaf.get(), saaf.get(), swaf.get(), staf.get()});
@@ -90,11 +95,11 @@ int main(int argc, char** argv) {
       staf.get(), swaf.get()});*/
 
   std::unique_ptr<SARSAAskSuccessResponseFactory> asrf =
-      SARSAAskSuccessResponseFactory::Create(n, g, random_generator,
-                                             &ask_success_learn_logger);
+      SARSAAskSuccessResponseFactory::Create(SARSALearner::Create(
+          n, g, b1, b2, random_generator, 10, &ask_success_learn_logger));
   std::unique_ptr<SARSAAskFailureResponseFactory> afrf =
-      SARSAAskFailureResponseFactory::Create(n, g, random_generator,
-                                             &ask_failure_learn_logger);
+      SARSAAskFailureResponseFactory::Create(SARSALearner::Create(
+          n, g, b1, b2, random_generator, 10, &ask_failure_learn_logger));
 
   std::unordered_map<std::string, std::set<SARSAResponseFactory*>>
       sarsa_response_factories({{"AskAction", {asrf.get(), afrf.get()}}});

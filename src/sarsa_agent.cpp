@@ -82,23 +82,35 @@ void SARSALearner::ReadWeights(FILE* weights_file) {
   }
 }
 
-std::unique_ptr<SARSALearner> SARSALearner::Create(double n, double g,
-                                                   std::mt19937& random_generator,
-                                                   size_t num_features,
-                                                   Logger* learn_logger) {
+std::unique_ptr<SARSALearner> SARSALearner::Create(
+    double n, double g, double b1, double b2, std::mt19937& random_generator,
+    size_t num_features, Logger* learn_logger) {
   std::vector<double> weights;
+  std::vector<double> m;
+  std::vector<double> r;
 
   std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
   for (size_t i = 0; i < num_features; i++) {
     weights.push_back(weight_dist(random_generator));
+    m.push_back(0.0);
+    r.push_back(0.0);
   }
 
-  return std::make_unique<SARSALearner>(n, g, weights, learn_logger);
+  return std::make_unique<SARSALearner>(n, g, b1, b2, weights, m, r,
+                                        learn_logger);
 }
 
-SARSALearner::SARSALearner(double n, double g, std::vector<double> weights,
-                           Logger* learn_logger)
-    : n_(n), g_(g), weights_(weights), learn_logger_(learn_logger) {}
+SARSALearner::SARSALearner(double n, double g, double b1, double b2,
+                           std::vector<double> weights, std::vector<double> m,
+                           std::vector<double> r, Logger* learn_logger)
+    : n_(n),
+      g_(g),
+      weights_(weights),
+      b1_(b1),
+      b2_(b2),
+      m_(m),
+      r_(r),
+      learn_logger_(learn_logger) {}
 
 void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   Action* action = experience->action_.get();
@@ -160,15 +172,33 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
                      action->GetFeatureVector()[0],
                      action->GetFeatureVector()[1], weights_[0], weights_[1]);
 
-  //this might not be the case if someone has changed the weights since we 
-  //TODO: there's something broken here, especially in the case of n-step and multiple agents sharing models
+  //this might not be the case if someone has changed the weights since we
   //assert(action->GetScore() == Score(action->GetFeatureVector()));
   // update the weights
   assert(action->GetFeatureVector().size() == weights_.size());
-  double n = n_ / (double)(action->GetFeatureVector().size());
+  //double n = n_;// / (double)(action->GetFeatureVector().size());
   double sum_d = 0.0;
+  t_ += 1;
   for(size_t i = 0; i < action->GetFeatureVector().size(); i++) {
-    double weight_update = n * d * action->GetFeatureVector()[i];
+    //simple learning
+    //double weight_update = n * d * action->GetFeatureVector()[i];
+
+    //partial derivative of loss w.r.t. this weight
+    double dL_dw = d*action->GetFeatureVector()[i];
+
+    // ADAM optimizier
+    // as per https://arxiv.org/pdf/1412.6980.pdf
+    // taken from slides:
+    // https://moodle2.cs.huji.ac.il/nu15/pluginfile.php/316969/mod_resource/content/1/adam_pres.pdf
+    m_[i] = b1_*m_[i] + (1.0-b1_)*(dL_dw);
+    r_[i] = b2_*r_[i] + (1.0-b2_)*(dL_dw * dL_dw);
+    double m_hat = m_[i] / (1.0 - pow(b1_, t_));
+    double r_hat = r_[i] / (1.0 - pow(b2_, t_));
+    double weight_update = n_ * m_hat / sqrt(r_hat + epsilon_);
+
+
+    assert(!std::isinf(weight_update));
+    assert(!std::isnan(weight_update));
     weights_[i] = weights_[i] - weight_update;
     sum_d += d * action->GetFeatureVector()[i];
   }
@@ -177,7 +207,7 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   learn_logger_->Log(INFO, "after update:\t%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
                      action->GetActionId(), new_score, updated_score,
                      truth_estimate, (new_score - updated_score), d,
-                     (new_score - updated_score) / d, n);
+                     (new_score - updated_score) / d, n_);
 
   // ideally we don't overshoot, but it's technically possible
   /*assert((updated_score - truth_estimate) * (updated_score - truth_estimate) >
@@ -220,6 +250,7 @@ double SARSALearner::Score(const std::vector<double>& features) {
     score += weights_[i] * features[i];
   }
   assert(!std::isinf(score));
+  assert(!std::isnan(score));
   return score;
 }
 

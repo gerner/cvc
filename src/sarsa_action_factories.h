@@ -14,7 +14,7 @@
 class SARSAGiveActionFactory : public SARSAActionFactory {
  public:
   static std::unique_ptr<SARSAGiveActionFactory> Create(
-      double n, double g, std::mt19937& random_generator, Logger* learn_logger);
+      std::unique_ptr<SARSALearner> learner);
 
   SARSAGiveActionFactory(std::unique_ptr<SARSALearner> learner);
 
@@ -26,7 +26,7 @@ class SARSAGiveActionFactory : public SARSAActionFactory {
 class SARSAAskActionFactory : public SARSAActionFactory {
  public:
   static std::unique_ptr<SARSAAskActionFactory> Create(
-      double n, double g, std::mt19937& random_generator, Logger* learn_logger);
+      std::unique_ptr<SARSALearner> learner);
 
   SARSAAskActionFactory(std::unique_ptr<SARSALearner> learner);
 
@@ -38,7 +38,7 @@ class SARSAAskActionFactory : public SARSAActionFactory {
 class SARSAAskSuccessResponseFactory : public SARSAResponseFactory {
  public:
   static std::unique_ptr<SARSAAskSuccessResponseFactory> Create(
-      double n, double g, std::mt19937& random_generator, Logger* learn_logger);
+      std::unique_ptr<SARSALearner> learner);
 
   SARSAAskSuccessResponseFactory(std::unique_ptr<SARSALearner> learner);
 
@@ -50,7 +50,7 @@ class SARSAAskSuccessResponseFactory : public SARSAResponseFactory {
 class SARSAAskFailureResponseFactory : public SARSAResponseFactory {
  public:
   static std::unique_ptr<SARSAAskFailureResponseFactory> Create(
-      double n, double g, std::mt19937& random_generator, Logger* learn_logger);
+      std::unique_ptr<SARSALearner> learner);
 
   SARSAAskFailureResponseFactory(std::unique_ptr<SARSALearner> learner);
 
@@ -62,7 +62,7 @@ class SARSAAskFailureResponseFactory : public SARSAResponseFactory {
 class SARSAWorkActionFactory : public SARSAActionFactory {
  public:
   static std::unique_ptr<SARSAWorkActionFactory> Create(
-      double n, double g, std::mt19937& random_generator, Logger* learn_logger);
+      std::unique_ptr<SARSALearner> learner);
 
   SARSAWorkActionFactory(std::unique_ptr<SARSALearner> learner);
 
@@ -74,7 +74,7 @@ class SARSAWorkActionFactory : public SARSAActionFactory {
 class SARSATrivialActionFactory : public SARSAActionFactory {
  public:
   static std::unique_ptr<SARSATrivialActionFactory> Create(
-      double n, double g, std::mt19937& random_generator, Logger* learn_logger);
+      std::unique_ptr<SARSALearner> learner);
 
   SARSATrivialActionFactory(std::unique_ptr<SARSALearner> learner);
 

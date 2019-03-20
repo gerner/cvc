@@ -42,13 +42,15 @@ class SARSALearner {
 
 
   //creates a randomly initialized learner
-  static std::unique_ptr<SARSALearner> Create(double n, double g,
+  static std::unique_ptr<SARSALearner> Create(double n, double g, double b1,
+                                              double b2,
                                               std::mt19937& random_generator,
                                               size_t num_features,
                                               Logger* learn_logger);
 
-  SARSALearner(double n, double g, std::vector<double> weights,
-               Logger* learn_logger);
+  SARSALearner(double n, double g, double b1, double b2,
+               std::vector<double> weights, std::vector<double> m,
+               std::vector<double> r, Logger* learn_logger);
 
   void Learn(CVC* cvc, Experience* experience);
 
@@ -67,6 +69,16 @@ class SARSALearner {
   double n_; //learning rate
   double g_; //discount factor
   std::vector<double> weights_;
+
+  //adam optimizer params and state
+  double b1_;
+  double b2_;
+  //TODO: parametrize ADAM epsilon?
+  double epsilon_ = .000000001; //10^-8
+  //TODO: setting learning epoch always to 1 means we can't load state
+  int t_=0;
+  std::vector<double> m_;
+  std::vector<double> r_;
 
   Logger* learn_logger_;
 };

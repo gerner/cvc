@@ -207,14 +207,13 @@ double SARSALearner::ComputeDiscountedRewards(
     e = e->next_experience_;
     i++;
   }
+  assert(e->learner_);
 
   return discounted_rewards + pow(g_, i) * e->learner_->Score(e->action_->GetFeatureVector());
 }
 
 double SARSALearner::Score(const std::vector<double>& features) {
   //first feature had beter be bias term
-  assert(features[0] == 1.0);
-
   assert(features.size() == weights_.size());
   double score = 0.0;
   for(size_t i = 0; i < features.size(); i++) {

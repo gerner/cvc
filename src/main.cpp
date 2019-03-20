@@ -70,8 +70,8 @@ int main(int argc, char** argv) {
   Logger trivial_learn_logger("learn_trivial", learn_log);
   Logger work_learn_logger("learn_work", learn_log);
 
-  FILE* policy_log = NULL;//fopen("/tmp/policy_log", "a");
-  //setvbuf(policy_log, NULL, _IOLBF, 1024*10);
+  FILE* policy_log = fopen("/tmp/policy_log", "a");
+  setvbuf(policy_log, NULL, _IOLBF, 1024*10);
   Logger policy_logger("policy", policy_log);
 
   std::unique_ptr<SARSAGiveActionFactory> sgaf = SARSAGiveActionFactory::Create(

@@ -9,10 +9,10 @@ struct TestActionState {
   int last_tick_ = -1;
 };
 
-class RecordingTestAction : public Action {
+class RecordingTestActionDET : public Action {
  public:
-  RecordingTestAction(Character* actor, TestActionState* tas)
-      : Action("RTA", actor, 1.0, {}), tas_(tas) {}
+  RecordingTestActionDET(Character* actor, TestActionState* tas)
+      : Action("RTA", actor, 1.0, {1.0}), tas_(tas) {}
 
   bool IsValid(const CVC* gamestate) {
     return true;
@@ -32,7 +32,7 @@ class TestAgent : public Agent {
 
   Action* ChooseAction(CVC* cvc) override {
     choose_calls_++;
-    next_action_ = std::make_unique<RecordingTestAction>(character_, &tas_);
+    next_action_ = std::make_unique<RecordingTestActionDET>(character_, &tas_);
     return next_action_.get();
   }
 
@@ -43,6 +43,10 @@ class TestAgent : public Agent {
   void Learn(CVC* cvc) override {
     EXPECT_NE(nullptr, cvc);
     learn_calls_++;
+  }
+
+  double Score(CVC* cvc) override {
+    return 0.0;
   }
 
   std::unique_ptr<Action> next_action_ = nullptr;

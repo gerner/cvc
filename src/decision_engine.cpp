@@ -12,7 +12,7 @@
 #include "action.h"
 
 std::unique_ptr<DecisionEngine> DecisionEngine::Create(
-    std::vector<Agent*> agents, CVC* cvc, FILE* action_log) {
+    std::vector<Agent*> agents, CVC* cvc, Logger* action_log) {
   std::unique_ptr<DecisionEngine> d =
       std::make_unique<DecisionEngine>(agents, cvc, action_log);
 
@@ -20,7 +20,7 @@ std::unique_ptr<DecisionEngine> DecisionEngine::Create(
 }
 
 DecisionEngine::DecisionEngine(std::vector<Agent*> agents,
-                               CVC* cvc, FILE* action_log)
+                               CVC* cvc, Logger* action_log)
     : agents_(agents), cvc_(cvc), action_log_(action_log) {
   for (Agent* agent : agents_) {
     agent_lookup_[agent->GetCharacter()] = agent;
@@ -96,10 +96,6 @@ void DecisionEngine::EvaluateQueuedActions() {
   //actions evaluated, so dump the list
   queued_actions_.clear();
 
-  if (action_log_) {
-    fflush(action_log_);
-  }
-
   //convenient place to score all the characters
   for (Agent* agent : agents_) {
     agent->GetCharacter()->SetScore(agent->Score(cvc_));
@@ -127,8 +123,7 @@ void DecisionEngine::LogInvalidAction(const Action* action) {
     std::copy(features.begin(), features.end(),
               std::ostream_iterator<double>(s, "\t"));
 
-    //TODO: move to logging framework
-    fprintf(action_log_, "%d\t%d\t%f\t%s\t%s\t%f\t%s\n", cvc_->Now(),
+    action_log_->Log(INFO, "%d\t%d\t%f\t%s\t%s\t%f\t%s\n", cvc_->Now(),
             action->GetActor()->GetId(), action->GetActor()->GetMoney(),
             "INVALID", action->GetActionId(), action->GetScore(),
             s.str().c_str());
@@ -147,7 +142,7 @@ void DecisionEngine::LogAction(const Action* action) {
     std::copy(features.begin(), features.end(),
               std::ostream_iterator<double>(s, "\t"));
 
-    fprintf(action_log_, "%d\t%d\t%f\t%s\t%f\t%f\t%s\n", cvc_->Now(),
+    action_log_->Log(INFO, "%d\t%d\t%f\t%s\t%f\t%f\t%s\n", cvc_->Now(),
             action->GetActor()->GetId(), action->GetActor()->GetMoney(),
             action->GetActionId(), action->GetReward(), action->GetScore(), s.str().c_str());
   }

@@ -121,11 +121,13 @@ int main(int argc, char** argv) {
   }
 
   FILE* action_log = fopen("/tmp/action_log", "a");
+  setvbuf(action_log, NULL, _IOLBF, 1024*10);
+  Logger action_logger = Logger("action", action_log);
   logger.Log(INFO, "creating CVC\n");
   CVC cvc(characters, &logger, random_generator);
 
   std::unique_ptr<DecisionEngine> d =
-      DecisionEngine::Create(agents, &cvc, action_log);
+      DecisionEngine::Create(agents, &cvc, &action_logger);
 
   logger.Log(INFO, "running the game loop\n");
 

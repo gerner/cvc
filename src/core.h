@@ -22,8 +22,8 @@ enum LogLevel {
 class Logger {
  public:
   Logger() : logger_name_("LOGGER") {}
-  Logger(const char* logger_name, FILE* log_sink)
-      : logger_name_(logger_name), log_sink_(log_sink) {}
+  Logger(const char* logger_name, FILE* log_sink, LogLevel level)
+      : logger_name_(logger_name), log_sink_(log_sink), log_level_(level) {}
 
   void Log(const LogLevel level, const char* format, ...) {
     if(level >= log_level_) {
@@ -36,10 +36,17 @@ class Logger {
       }
     }
   }
+
+  LogLevel GetLogLevel() {
+    return log_level_;
+  }
+  void SetLogLevel(LogLevel level) {
+    log_level_ = level;
+  }
  private:
   const char* logger_name_;
-  const LogLevel log_level_ = INFO;
   FILE *log_sink_ = stderr;
+  LogLevel log_level_ = INFO;
 };
 
 struct Stats {

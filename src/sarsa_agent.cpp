@@ -86,6 +86,8 @@ std::unique_ptr<SARSALearner> SARSALearner::Create(
     double n, double g, double b1, double b2, std::mt19937& random_generator,
     size_t num_features, Logger* learn_logger) {
   std::vector<double> weights;
+  std::vector<Stats> stats;
+
   std::vector<double> m;
   std::vector<double> r;
 
@@ -94,18 +96,21 @@ std::unique_ptr<SARSALearner> SARSALearner::Create(
     weights.push_back(weight_dist(random_generator));
     m.push_back(0.0);
     r.push_back(0.0);
+    stats.push_back(Stats());
   }
 
-  return std::make_unique<SARSALearner>(n, g, b1, b2, weights, m, r,
+  return std::make_unique<SARSALearner>(n, g, b1, b2, weights, stats, m, r,
                                         learn_logger);
 }
 
 SARSALearner::SARSALearner(double n, double g, double b1, double b2,
-                           std::vector<double> weights, std::vector<double> m,
-                           std::vector<double> r, Logger* learn_logger)
+                           std::vector<double> weights, std::vector<Stats> s,
+                           std::vector<double> m, std::vector<double> r,
+                           Logger* learn_logger)
     : n_(n),
       g_(g),
       weights_(weights),
+      feature_stats_(s),
       b1_(b1),
       b2_(b2),
       m_(m),
@@ -180,6 +185,9 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   double sum_d = 0.0;
   t_ += 1;
   for(size_t i = 0; i < action->GetFeatureVector().size(); i++) {
+    //keep some stats on the features for later analysis
+    feature_stats_[i].Update(action->GetFeatureVector()[i]);
+
     //simple learning
     //double weight_update = n * d * action->GetFeatureVector()[i];
 

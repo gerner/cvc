@@ -49,8 +49,9 @@ class SARSALearner {
                                               Logger* learn_logger);
 
   SARSALearner(double n, double g, double b1, double b2,
-               std::vector<double> weights, std::vector<double> m,
-               std::vector<double> r, Logger* learn_logger);
+               std::vector<double> weights, std::vector<Stats> s,
+               std::vector<double> m, std::vector<double> r,
+               Logger* learn_logger);
 
   void Learn(CVC* cvc, Experience* experience);
 
@@ -69,6 +70,8 @@ class SARSALearner {
   double n_; //learning rate
   double g_; //discount factor
   std::vector<double> weights_;
+
+  std::vector<Stats> feature_stats_;
 
   //adam optimizer params and state
   double b1_;

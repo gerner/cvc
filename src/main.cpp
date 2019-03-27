@@ -65,16 +65,16 @@ int main(int argc, char** argv) {
   //learning agents
   FILE* learn_log = fopen("/tmp/learn_log", "a");
   setvbuf(learn_log, NULL, _IOLBF, 1024*10);
-  Logger give_learn_logger("learn_give", learn_log);
-  Logger ask_learn_logger("learn_ask", learn_log);
-  Logger ask_success_learn_logger("learn_ask_success", learn_log);
-  Logger ask_failure_learn_logger("learn_ask_failure", learn_log);
-  Logger trivial_learn_logger("learn_trivial", learn_log);
-  Logger work_learn_logger("learn_work", learn_log);
+  Logger give_learn_logger("learn_give", learn_log, WARN);
+  Logger ask_learn_logger("learn_ask", learn_log, WARN);
+  Logger ask_success_learn_logger("learn_ask_success", learn_log, WARN);
+  Logger ask_failure_learn_logger("learn_ask_failure", learn_log, WARN);
+  Logger trivial_learn_logger("learn_trivial", learn_log, WARN);
+  Logger work_learn_logger("learn_work", learn_log, WARN);
 
   FILE* policy_log = fopen("/tmp/policy_log", "a");
   setvbuf(policy_log, NULL, _IOLBF, 1024*10);
-  Logger policy_logger("policy", policy_log);
+  Logger policy_logger("policy", policy_log, WARN);
 
   std::unique_ptr<SARSAGiveActionFactory> sgaf =
       SARSAGiveActionFactory::Create(SARSALearner::Create(
@@ -122,7 +122,8 @@ int main(int argc, char** argv) {
 
   FILE* action_log = fopen("/tmp/action_log", "a");
   setvbuf(action_log, NULL, _IOLBF, 1024*10);
-  Logger action_logger = Logger("action", action_log);
+  Logger action_logger = Logger("action", action_log, WARN);
+  action_logger.SetLogLevel(WARN);
   logger.Log(INFO, "creating CVC\n");
   CVC cvc(characters, &logger, random_generator);
 

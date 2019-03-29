@@ -11,9 +11,8 @@
 #include "sarsa_action_factories.h"
 
 std::unique_ptr<SARSATrivialActionFactory> SARSATrivialActionFactory::Create(
-    double n, double g, std::mt19937& random_generator, Logger* learn_logger) {
-  return std::make_unique<SARSATrivialActionFactory>(
-      SARSALearner::Create(n, g, random_generator, 6, learn_logger));
+    std::unique_ptr<SARSALearner> learner) {
+  return std::make_unique<SARSATrivialActionFactory>(std::move(learner));
 }
 
 SARSATrivialActionFactory::SARSATrivialActionFactory(
@@ -39,9 +38,8 @@ double SARSATrivialActionFactory::EnumerateActions(
 }
 
 std::unique_ptr<SARSAGiveActionFactory> SARSAGiveActionFactory::Create(
-    double n, double g, std::mt19937& random_generator, Logger* learn_logger) {
-  return std::make_unique<SARSAGiveActionFactory>(
-      SARSALearner::Create(n, g, random_generator, 10, learn_logger));
+    std::unique_ptr<SARSALearner> learner) {
+  return std::make_unique<SARSAGiveActionFactory>(std::move(learner));
 }
 
 SARSAGiveActionFactory::SARSAGiveActionFactory(
@@ -90,9 +88,8 @@ double SARSAGiveActionFactory::EnumerateActions(
 }
 
 std::unique_ptr<SARSAAskActionFactory> SARSAAskActionFactory::Create(
-    double n, double g, std::mt19937& random_generator, Logger* learn_logger) {
-  return std::make_unique<SARSAAskActionFactory>(
-      SARSALearner::Create(n, g, random_generator, 10, learn_logger));
+    std::unique_ptr<SARSALearner> learner) {
+  return std::make_unique<SARSAAskActionFactory>(std::move(learner));
 }
 
 SARSAAskActionFactory::SARSAAskActionFactory(std::unique_ptr<SARSALearner> learner)
@@ -142,11 +139,8 @@ double SARSAAskActionFactory::EnumerateActions(
 }
 
 std::unique_ptr<SARSAAskSuccessResponseFactory>
-SARSAAskSuccessResponseFactory::Create(double n, double g,
-                                       std::mt19937& random_generator,
-                                       Logger* learn_logger) {
-  return std::make_unique<SARSAAskSuccessResponseFactory>(
-      SARSALearner::Create(n, g, random_generator, 10, learn_logger));
+SARSAAskSuccessResponseFactory::Create(std::unique_ptr<SARSALearner> learner) {
+  return std::make_unique<SARSAAskSuccessResponseFactory>(std::move(learner));
 }
 
 SARSAAskSuccessResponseFactory::SARSAAskSuccessResponseFactory(
@@ -172,11 +166,8 @@ double SARSAAskSuccessResponseFactory::Respond(
 }
 
 std::unique_ptr<SARSAAskFailureResponseFactory>
-SARSAAskFailureResponseFactory::Create(double n, double g,
-                                       std::mt19937& random_generator,
-                                       Logger* learn_logger) {
-  return std::make_unique<SARSAAskFailureResponseFactory>(
-      SARSALearner::Create(n, g, random_generator, 10, learn_logger));
+SARSAAskFailureResponseFactory::Create(std::unique_ptr<SARSALearner> learner) {
+  return std::make_unique<SARSAAskFailureResponseFactory>(std::move(learner));
 }
 
 SARSAAskFailureResponseFactory::SARSAAskFailureResponseFactory(
@@ -198,9 +189,8 @@ double SARSAAskFailureResponseFactory::Respond(
 }
 
 std::unique_ptr<SARSAWorkActionFactory> SARSAWorkActionFactory::Create(
-    double n, double g, std::mt19937& random_generator, Logger* learn_logger) {
-  return std::make_unique<SARSAWorkActionFactory>(
-      SARSALearner::Create(n, g, random_generator, 6, learn_logger));
+    std::unique_ptr<SARSALearner> learner) {
+  return std::make_unique<SARSAWorkActionFactory>(std::move(learner));
 }
 
 SARSAWorkActionFactory::SARSAWorkActionFactory(std::unique_ptr<SARSALearner> learner)

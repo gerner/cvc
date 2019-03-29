@@ -44,10 +44,10 @@ class Agent {
 class DecisionEngine {
  public:
   static std::unique_ptr<DecisionEngine> Create(std::vector<Agent*> agents,
-                                                CVC* cvc, FILE* action_log);
+                                                CVC* cvc, Logger* action_log);
 
   DecisionEngine(std::vector<Agent*> agents, CVC* cvc,
-                 FILE* action_log);
+                 Logger* action_log);
 
   // Runs one loop of the game
   // When this method returns a few things will be true
@@ -68,7 +68,7 @@ class DecisionEngine {
 
   const std::vector<Agent*> agents_;
   CVC* cvc_;
-  FILE* action_log_;
+  Logger* action_log_;
 
   // represents the next set of actions we're going to take
   // note, these are partial experiences which haven't played out and don't

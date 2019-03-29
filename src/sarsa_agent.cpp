@@ -1,4 +1,4 @@
-#include <vector>
+include <vector>
 #include <cassert>
 #include <random>
 #include <limits>
@@ -182,6 +182,7 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   // update the weights
   assert(action->GetFeatureVector().size() == weights_.size());
   //double n = n_;// / (double)(action->GetFeatureVector().size());
+  //hang on to the sum of the partials for debugging
   double sum_d = 0.0;
   t_ += 1;
   for(size_t i = 0; i < action->GetFeatureVector().size(); i++) {

@@ -78,7 +78,8 @@ class SARSALearner {
   double b2_;
   //TODO: parametrize ADAM epsilon?
   double epsilon_ = .000000001; //10^-8
-  //TODO: setting learning epoch always to 1 means we can't load state
+  //TODO: setting learning epoch always to 0 means we can't load state
+  //so this would need to get serialized out
   int t_=0;
   std::vector<double> m_;
   std::vector<double> r_;

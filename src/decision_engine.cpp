@@ -8,6 +8,7 @@
 #include <algorithm>
 
 #include "core.h"
+#include "crunchedin.h"
 #include "decision_engine.h"
 #include "action.h"
 

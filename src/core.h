@@ -1,6 +1,7 @@
 #ifndef CORE_H_
 #define CORE_H_
 
+#include <limits>
 #include <cmath>
 #include <vector>
 #include <unordered_map>
@@ -131,6 +132,8 @@ class Character {
 
  private:
   int id_;
+  int start_tick_;
+  int end_tick_ = std::numeric_limits<int>::max();
   double money_;
   double score_;
 

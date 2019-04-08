@@ -9,8 +9,6 @@
 #include "core.h"
 #include "action.h"
 
-class Agent;
-
 // An agent acts on behalf of a character in CVC
 // It must be able to, given the current game state choose an "independent"
 // action representing what the character will do next

@@ -156,20 +156,11 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
 
   //compute (estimate) the partial derivative w.r.t. score
   double truth_estimate = ComputeDiscountedRewards(experience);
+  //double loss = pow(updated_score - truth_estimate, 2);
   double d = 2 * (updated_score - truth_estimate);//action->GetScore();
   assert(!std::isinf(d));
 
-  //log:
-  // tick
-  // action
-  // reward
-  // estimated score
-  // r + g * next estimated score
-  // d
-  // |
-  // features
-  // |
-  // weights
+  //log some info about model performance
   learn_logger_->Log(INFO, "%d\t%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
                      cvc->Now(), action->GetActionId(),
                      experience->next_experience_->score_ - experience->score_,

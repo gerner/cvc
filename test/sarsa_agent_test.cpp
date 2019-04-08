@@ -31,7 +31,7 @@ class SarsaAgentTest : public ::testing::Test {
  protected:
   void SetUp() override {
     learner_ =
-        SARSALearner::Create(0.001, 0.8, 0.0, 0.0, random_generator_, 0, &learn_logger_);
+        SARSALearner::Create(1, 0.001, 0.8, 0.0, 0.0, random_generator_, 0, &learn_logger_);
   }
 
   Logger learn_logger_;

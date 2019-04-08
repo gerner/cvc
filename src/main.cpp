@@ -54,7 +54,8 @@ int main(int argc, char** argv) {
     agents.push_back(a.back().get());
   }
 
-  double e = 0.05;
+  //double policy_greedy_e = 0.05;
+  double policy_temperature = 0.5;
   double n = 0.001;
   double b1 = 0.9;
   double b2 = 0.999;
@@ -65,12 +66,12 @@ int main(int argc, char** argv) {
   //learning agents
   FILE* learn_log = fopen("/tmp/learn_log", "a");
   setvbuf(learn_log, NULL, _IOLBF, 1024*10);
-  Logger give_learn_logger("learn_give", learn_log, WARN);
-  Logger ask_learn_logger("learn_ask", learn_log, WARN);
-  Logger ask_success_learn_logger("learn_ask_success", learn_log, WARN);
-  Logger ask_failure_learn_logger("learn_ask_failure", learn_log, WARN);
-  Logger trivial_learn_logger("learn_trivial", learn_log, WARN);
-  Logger work_learn_logger("learn_work", learn_log, WARN);
+  Logger give_learn_logger("learn_give", learn_log, INFO);
+  Logger ask_learn_logger("learn_ask", learn_log, INFO);
+  Logger ask_success_learn_logger("learn_ask_success", learn_log, INFO);
+  Logger ask_failure_learn_logger("learn_ask_failure", learn_log, INFO);
+  Logger trivial_learn_logger("learn_trivial", learn_log, INFO);
+  Logger work_learn_logger("learn_work", learn_log, INFO);
 
   FILE* policy_log = fopen("/tmp/policy_log", "a");
   setvbuf(policy_log, NULL, _IOLBF, 1024*10);
@@ -78,16 +79,16 @@ int main(int argc, char** argv) {
 
   std::unique_ptr<SARSAGiveActionFactory> sgaf =
       SARSAGiveActionFactory::Create(SARSALearner::Create(
-          n, g, b1, b2, random_generator, 10, &give_learn_logger));
+          1, n, g, b1, b2, random_generator, 10, &give_learn_logger));
   std::unique_ptr<SARSAAskActionFactory> saaf =
       SARSAAskActionFactory::Create(SARSALearner::Create(
-          n, g, b1, b2, random_generator, 10, &ask_learn_logger));
+          2, n, g, b1, b2, random_generator, 10, &ask_learn_logger));
   std::unique_ptr<SARSATrivialActionFactory> staf =
       SARSATrivialActionFactory::Create(SARSALearner::Create(
-          n, g, b1, b2, random_generator, 6, &trivial_learn_logger));
+          3, n, g, b1, b2, random_generator, 6, &trivial_learn_logger));
   std::unique_ptr<SARSAWorkActionFactory> swaf =
       SARSAWorkActionFactory::Create(SARSALearner::Create(
-          n, g, b1, b2, random_generator, 6, &work_learn_logger));
+          4, n, g, b1, b2, random_generator, 6, &work_learn_logger));
 
   std::vector<SARSAActionFactory*> sarsa_action_factories({
       sgaf.get(), saaf.get(), swaf.get(), staf.get()});
@@ -96,16 +97,17 @@ int main(int argc, char** argv) {
 
   std::unique_ptr<SARSAAskSuccessResponseFactory> asrf =
       SARSAAskSuccessResponseFactory::Create(SARSALearner::Create(
-          n, g, b1, b2, random_generator, 10, &ask_success_learn_logger));
+          5, n, g, b1, b2, random_generator, 10, &ask_success_learn_logger));
   std::unique_ptr<SARSAAskFailureResponseFactory> afrf =
       SARSAAskFailureResponseFactory::Create(SARSALearner::Create(
-          n, g, b1, b2, random_generator, 10, &ask_failure_learn_logger));
+          6, n, g, b1, b2, random_generator, 10, &ask_failure_learn_logger));
 
   std::unordered_map<std::string, std::set<SARSAResponseFactory*>>
       sarsa_response_factories({{"AskAction", {asrf.get(), afrf.get()}}});
 
   //scf.ReadWeights();
-  EpsilonGreedyPolicy egp(e, &policy_logger);
+  //EpsilonGreedyPolicy learning_policy(policy_greedy_e, &policy_logger);
+  SoftmaxPolicy learning_policy(policy_temperature, &policy_logger);
   int num_non_learning_agents = agents.size();
   for (int i = 0; i < num_learning_agents; i++) {
     c.push_back(std::make_unique<Character>(i + num_non_learning_agents,
@@ -114,9 +116,9 @@ int main(int argc, char** argv) {
     characters.back()->traits_[kBackground] = background_dist(random_generator);
     characters.back()->traits_[kLanguage] = language_dist(random_generator);
 
-    a.push_back(
-        std::make_unique<SARSAAgent>(characters.back(), sarsa_action_factories,
-                                     sarsa_response_factories, &egp, n_steps));
+    a.push_back(std::make_unique<SARSAAgent>(
+        characters.back(), sarsa_action_factories, sarsa_response_factories,
+        &learning_policy, n_steps));
     agents.push_back(a.back().get());
   }
 

@@ -251,3 +251,34 @@ std::unique_ptr<Experience> EpsilonGreedyPolicy::ChooseAction(
   return std::move(*best_action);
 }
 
+std::unique_ptr<Experience> SoftmaxPolicy::ChooseAction(
+    std::vector<std::unique_ptr<Experience>>* actions, CVC* cvc,
+    Character* character) {
+  assert(actions->size() > 0);
+
+  double scores[actions->size()];
+  double sum_score = 0.0;
+
+  for (size_t i = 0; i < actions->size(); i++) {
+    scores[i] = exp((*actions)[i]->action_->GetScore() / temperature_);
+    sum_score += scores[i];
+  }
+
+  //choose one according to softmax
+  std::uniform_real_distribution<> dist(0.0, 1.0);
+  double choice = dist(*cvc->GetRandomGenerator());
+  double sum_prob = 0.0;
+
+  for (size_t i = 0; i < actions->size(); i++) {
+    sum_prob += scores[i]/sum_score;
+    if (choice < sum_prob) {
+      logger_->Log(INFO, "chose %s with score %f\n",
+                   (*actions)[i]->action_->GetActionId(),
+                   (*actions)[i]->action_->GetScore());
+      assert((*actions)[i]->action_->IsValid(cvc));
+      return std::move((*actions)[i]);
+    }
+  }
+  abort();
+}
+

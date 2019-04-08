@@ -8,6 +8,8 @@
 #include <set>
 #include <deque>
 
+#include "util.h"
+#include "core.h"
 #include "action.h"
 #include "decision_engine.h"
 
@@ -42,13 +44,13 @@ class SARSALearner {
 
 
   //creates a randomly initialized learner
-  static std::unique_ptr<SARSALearner> Create(double n, double g, double b1,
-                                              double b2,
+  static std::unique_ptr<SARSALearner> Create(int learner_id, double n,
+                                              double g, double b1, double b2,
                                               std::mt19937& random_generator,
                                               size_t num_features,
                                               Logger* learn_logger);
 
-  SARSALearner(double n, double g, double b1, double b2,
+  SARSALearner(int learner_id, double n, double g, double b1, double b2,
                std::vector<double> weights, std::vector<Stats> s,
                std::vector<double> m, std::vector<double> r,
                Logger* learn_logger);
@@ -67,6 +69,8 @@ class SARSALearner {
   }
 
  private:
+  int learner_id_;
+
   double n_; //learning rate
   double g_; //discount factor
   std::vector<double> weights_;

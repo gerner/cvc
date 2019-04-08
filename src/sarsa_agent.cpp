@@ -83,8 +83,8 @@ void SARSALearner::ReadWeights(FILE* weights_file) {
 }
 
 std::unique_ptr<SARSALearner> SARSALearner::Create(
-    double n, double g, double b1, double b2, std::mt19937& random_generator,
-    size_t num_features, Logger* learn_logger) {
+    int learner_id, double n, double g, double b1, double b2,
+    std::mt19937& random_generator, size_t num_features, Logger* learn_logger) {
   std::vector<double> weights;
   std::vector<Stats> stats;
 
@@ -99,15 +99,16 @@ std::unique_ptr<SARSALearner> SARSALearner::Create(
     stats.push_back(Stats());
   }
 
-  return std::make_unique<SARSALearner>(n, g, b1, b2, weights, stats, m, r,
-                                        learn_logger);
+  return std::make_unique<SARSALearner>(learner_id, n, g, b1, b2, weights,
+                                        stats, m, r, learn_logger);
 }
 
-SARSALearner::SARSALearner(double n, double g, double b1, double b2,
-                           std::vector<double> weights, std::vector<Stats> s,
-                           std::vector<double> m, std::vector<double> r,
-                           Logger* learn_logger)
-    : n_(n),
+SARSALearner::SARSALearner(int learner_id, double n, double g, double b1,
+                           double b2, std::vector<double> weights,
+                           std::vector<Stats> s, std::vector<double> m,
+                           std::vector<double> r, Logger* learn_logger)
+    : learner_id_(learner_id),
+      n_(n),
       g_(g),
       weights_(weights),
       feature_stats_(s),
@@ -156,17 +157,15 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
 
   //compute (estimate) the partial derivative w.r.t. score
   double truth_estimate = ComputeDiscountedRewards(experience);
-  //double loss = pow(updated_score - truth_estimate, 2);
+  double loss = pow(updated_score - truth_estimate, 2);
   double d = 2 * (updated_score - truth_estimate);//action->GetScore();
   assert(!std::isinf(d));
 
   //log some info about model performance
-  learn_logger_->Log(INFO, "%d\t%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
-                     cvc->Now(), action->GetActionId(),
-                     experience->next_experience_->score_ - experience->score_,
-                     updated_score, truth_estimate, d,
-                     action->GetFeatureVector()[0],
-                     action->GetFeatureVector()[1], weights_[0], weights_[1]);
+  learn_logger_->Log(INFO, "%d\t%s\t%d\t%f\t%f\t%f\t%f\t%f\n", cvc->Now(),
+                     action->GetActionId(), learner_id_, loss, d, updated_score,
+                     truth_estimate,
+                     experience->next_experience_->score_ - experience->score_);
 
   //this might not be the case if someone has changed the weights since we
   //assert(action->GetScore() == Score(action->GetFeatureVector()));
@@ -204,7 +203,7 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   }
 
   double new_score = Score(action->GetFeatureVector());
-  learn_logger_->Log(INFO, "after update:\t%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
+  learn_logger_->Log(DEBUG, "after update:\t%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
                      action->GetActionId(), new_score, updated_score,
                      truth_estimate, (new_score - updated_score), d,
                      (new_score - updated_score) / d, n_);

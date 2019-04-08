@@ -97,4 +97,18 @@ class EpsilonGreedyPolicy : public SARSAActionPolicy {
   Logger* logger_;
 };
 
+class SoftmaxPolicy : public SARSAActionPolicy {
+ public:
+  SoftmaxPolicy(double temperature, Logger* logger)
+      : temperature_(temperature), logger_(logger){};
+
+  std::unique_ptr<Experience> ChooseAction(
+      std::vector<std::unique_ptr<Experience>>* actions, CVC* cvc,
+      Character* character) override;
+
+ private:
+  double temperature_;
+  Logger* logger_;
+};
+
 #endif

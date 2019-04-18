@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
 
   FILE* policy_log = fopen("/tmp/policy_log", "a");
   setvbuf(policy_log, NULL, _IOLBF, 1024*10);
-  Logger policy_logger("policy", policy_log, WARN);
+  Logger policy_logger("policy", policy_log, INFO);
 
   std::unique_ptr<SARSAGiveActionFactory> sgaf =
       SARSAGiveActionFactory::Create(SARSALearner::Create(

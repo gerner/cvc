@@ -158,12 +158,12 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   //compute (estimate) the partial derivative w.r.t. score
   double truth_estimate = ComputeDiscountedRewards(experience);
   double loss = pow(updated_score - truth_estimate, 2);
-  double d = 2 * (updated_score - truth_estimate);//action->GetScore();
-  assert(!std::isinf(d));
+  double dL_dy = 2 * (updated_score - truth_estimate);
+  assert(!std::isinf(dL_dy));
 
   //log some info about model performance
   learn_logger_->Log(INFO, "%d\t%s\t%d\t%f\t%f\t%f\t%f\t%f\n", cvc->Now(),
-                     action->GetActionId(), learner_id_, loss, d, updated_score,
+                     action->GetActionId(), learner_id_, loss, dL_dy, updated_score,
                      truth_estimate,
                      experience->next_experience_->score_ - experience->score_);
 
@@ -180,10 +180,11 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
     feature_stats_[i].Update(action->GetFeatureVector()[i]);
 
     //simple learning
-    //double weight_update = n * d * action->GetFeatureVector()[i];
+    //double weight_update = n * dL_dy * action->GetFeatureVector()[i];
 
     //partial derivative of loss w.r.t. this weight
-    double dL_dw = d*action->GetFeatureVector()[i];
+    //by chain rule dL_dy * dy_dw
+    double dL_dw = dL_dy*action->GetFeatureVector()[i];
 
     // ADAM optimizier
     // as per https://arxiv.org/pdf/1412.6980.pdf
@@ -199,14 +200,14 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
     assert(!std::isinf(weight_update));
     assert(!std::isnan(weight_update));
     weights_[i] = weights_[i] - weight_update;
-    sum_d += d * action->GetFeatureVector()[i];
+    sum_d += dL_dy * action->GetFeatureVector()[i];
   }
 
   double new_score = Score(action->GetFeatureVector());
   learn_logger_->Log(DEBUG, "after update:\t%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
                      action->GetActionId(), new_score, updated_score,
-                     truth_estimate, (new_score - updated_score), d,
-                     (new_score - updated_score) / d, n_);
+                     truth_estimate, (new_score - updated_score), dL_dy,
+                     (new_score - updated_score) / dL_dy, n_);
 
   // ideally we don't overshoot, but it's technically possible
   /*assert((updated_score - truth_estimate) * (updated_score - truth_estimate) >
@@ -217,7 +218,7 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   //assert((truth_estimate - Score(action->GetFeatureVector())) <= abs(truth_estimate - action->GetScore()));
   // according to Hendrickson, the difference between the old score and the new
   // one should be the error computed above times the learning rate
-  //assert(action->GetScore() - Score(action->GetFeatureVector()) == d * n_);
+  //assert(action->GetScore() - Score(action->GetFeatureVector()) == dL_dy * n_);
 }
 
 double SARSALearner::ComputeDiscountedRewards(

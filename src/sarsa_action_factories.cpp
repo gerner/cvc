@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <vector>
 #include <cassert>
 #include <random>
@@ -259,6 +260,13 @@ std::unique_ptr<Experience> SoftmaxPolicy::ChooseAction(
   double scores[actions->size()];
   double sum_score = 0.0;
 
+  //sort by score so index corresponds to ordering
+  //this is useful for logging the position of the option chosen for analysis
+  std::sort((*actions).begin(), (*actions).end(),
+            [](std::unique_ptr<Experience>& a, std::unique_ptr<Experience>& b) {
+              return a->action_->GetScore() > b->action_->GetScore();
+            });
+
   for (size_t i = 0; i < actions->size(); i++) {
     scores[i] = exp((*actions)[i]->action_->GetScore() / temperature_);
     sum_score += scores[i];
@@ -272,9 +280,10 @@ std::unique_ptr<Experience> SoftmaxPolicy::ChooseAction(
   for (size_t i = 0; i < actions->size(); i++) {
     sum_prob += scores[i]/sum_score;
     if (choice < sum_prob) {
-      logger_->Log(INFO, "chose %s with score %f\n",
-                   (*actions)[i]->action_->GetActionId(),
-                   (*actions)[i]->action_->GetScore());
+      logger_->Log(
+          INFO, "chose %s with score %f with prob %f at position %zu of %zu\n",
+          (*actions)[i]->action_->GetActionId(),
+          (*actions)[i]->action_->GetScore(), scores[i], i, actions->size());
       assert((*actions)[i]->action_->IsValid(cvc));
       return std::move((*actions)[i]);
     }

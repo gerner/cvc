@@ -55,6 +55,7 @@ double SARSAGiveActionFactory::EnumerateActions(
     double best_score = std::numeric_limits<double>::lowest();
     Character* best_target = NULL;
     std::vector<double> best_features;
+    double sum_score = 0.0;
     for (Character* target : cvc->GetCharacters()) {
       if(target == character) {
         continue;
@@ -72,18 +73,26 @@ double SARSAGiveActionFactory::EnumerateActions(
            target->GetMoney()});*/
       std::vector<double> features = TargetFeatures(cvc, character, target);
       double score = learner_->Score(features);
-      if(score > best_score) {
+
+      //add this as an action choice
+      actions->push_back(learner_->WrapAction(std::make_unique<GiveAction>(
+          character, score, features, target, 10.0)));
+      sum_score += score;
+
+      /*if(score > best_score) {
         best_score = score;
         best_features = features;
         best_target = target;
-      }
+      }*/
     }
 
-    if (best_target) {
+    //only consider giving to best target
+    /*if (best_target) {
       actions->push_back(learner_->WrapAction(std::make_unique<GiveAction>(
           character, best_score, best_features, best_target, 10.0)));
       return best_score;
-    }
+    }*/
+    return sum_score;
   }
   return 0.0;
 }
@@ -102,6 +111,7 @@ double SARSAAskActionFactory::EnumerateActions(
 
   Character* best_target = NULL;
   double best_score = std::numeric_limits<double>::lowest();
+  double sum_score = 0.0;
   std::vector<double> best_features;
   for (Character* target : cvc->GetCharacters()) {
     // skip self
@@ -125,18 +135,26 @@ double SARSAAskActionFactory::EnumerateActions(
          target->GetMoney()});*/
     std::vector<double> features = TargetFeatures(cvc, character, target);
     double score = learner_->Score(features);
-    if(score > best_score) {
+
+    //add this as an option to ask
+    actions->push_back(learner_->WrapAction(std::make_unique<AskAction>(
+        character, score, features, target, 10.0)));
+    sum_score += score;
+
+    /*if(score > best_score) {
       best_score = score;
       best_features = features;
       best_target = target;
-    }
+    }*/
   }
-  if (best_target) {
+
+  //consider only the best target to ask
+  /*if (best_target) {
     actions->push_back(learner_->WrapAction(std::make_unique<AskAction>(
         character, best_score, best_features, best_target, 10.0)));
     return best_score;
-  }
-  return 0.0;
+  }*/
+  return sum_score;
 }
 
 std::unique_ptr<SARSAAskSuccessResponseFactory>
@@ -269,6 +287,8 @@ std::unique_ptr<Experience> SoftmaxPolicy::ChooseAction(
 
   for (size_t i = 0; i < actions->size(); i++) {
     scores[i] = exp((*actions)[i]->action_->GetScore() / temperature_);
+    assert(!std::isinf(scores[i]));
+    assert(!std::isnan(scores[i]));
     sum_score += scores[i];
   }
 
@@ -280,14 +300,40 @@ std::unique_ptr<Experience> SoftmaxPolicy::ChooseAction(
   for (size_t i = 0; i < actions->size(); i++) {
     sum_prob += scores[i]/sum_score;
     if (choice < sum_prob) {
-      logger_->Log(
-          INFO, "chose %s with score %f with prob %f at position %zu of %zu\n",
-          (*actions)[i]->action_->GetActionId(),
-          (*actions)[i]->action_->GetScore(), scores[i], i, actions->size());
+      logger_->Log(INFO,
+                   "%d chose %s with score %f with prob %f (choice %f temp %f) at "
+                   "position %zu of %zu\n", cvc->Now(),
+                   (*actions)[i]->action_->GetActionId(),
+                   (*actions)[i]->action_->GetScore(), scores[i] / sum_score,
+                   choice, temperature_, i, actions->size());
       assert((*actions)[i]->action_->IsValid(cvc));
       return std::move((*actions)[i]);
     }
   }
   abort();
+}
+
+std::unique_ptr<Experience> AnnealingSoftmaxPolicy::ChooseAction(
+    std::vector<std::unique_ptr<Experience>>* actions, CVC* cvc,
+    Character* character) {
+  temperature_ = initial_temperature_ / sqrt(cvc->Now()+1);
+  return SoftmaxPolicy::ChooseAction(actions, cvc, character);
+}
+
+void GradSensitiveSoftmaxPolicy::UpdateGrad(double dL_dy, double y) {
+  // TODO: a few issues with this:
+  // the min/max thing is really clunky
+  // poor foundation to divide by y and square I think
+  // this will raise the temp if we start getting bigger gradients for actions
+  // chosen, but not if actions we didn't choose start changing (since we won't
+  // observe that)
+  temperature_ = decay_ * (scale_ * (dL_dy / y) * (dL_dy / y)) +
+                 (1.0 - decay_) * temperature_;
+  if(temperature_ < min_temperature_) {
+    temperature_ = min_temperature_;
+  }
+  if(temperature_ > max_temperature_) {
+    temperature_ = max_temperature_;
+  }
 }
 

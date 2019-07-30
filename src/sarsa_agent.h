@@ -55,7 +55,7 @@ class SARSALearner {
                std::vector<double> m, std::vector<double> r,
                Logger* learn_logger);
 
-  void Learn(CVC* cvc, Experience* experience);
+  double Learn(CVC* cvc, Experience* experience);
 
   void WriteWeights(FILE* weights_file);
   void ReadWeights(FILE* weights_file);
@@ -172,6 +172,8 @@ class SARSAResponseFactory {
 
 class SARSAActionPolicy {
   public:
+   virtual void UpdateGrad(double dL_dy, double y) {}
+
    virtual std::unique_ptr<Experience> ChooseAction(
        std::vector<std::unique_ptr<Experience>>* actions, CVC* cvc,
        Character* character) = 0;

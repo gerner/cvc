@@ -106,9 +106,40 @@ class SoftmaxPolicy : public SARSAActionPolicy {
       std::vector<std::unique_ptr<Experience>>* actions, CVC* cvc,
       Character* character) override;
 
- private:
+ protected:
   double temperature_;
   Logger* logger_;
+};
+
+class AnnealingSoftmaxPolicy : public SoftmaxPolicy {
+ public:
+  AnnealingSoftmaxPolicy(double initial_temperature, Logger* logger)
+      : SoftmaxPolicy(initial_temperature, logger),
+        initial_temperature_(initial_temperature){};
+
+  std::unique_ptr<Experience> ChooseAction(
+      std::vector<std::unique_ptr<Experience>>* actions, CVC* cvc,
+      Character* character) override;
+
+ private:
+  double initial_temperature_;
+};
+
+class GradSensitiveSoftmaxPolicy : public SoftmaxPolicy {
+ public:
+  GradSensitiveSoftmaxPolicy(double initial_temperature, double decay,
+                             double scale, Logger* logger)
+      : SoftmaxPolicy(initial_temperature, logger),
+        decay_(decay),
+        scale_(scale){};
+
+  void UpdateGrad(double dL_dy, double y);
+
+ private:
+  double decay_;
+  double scale_;
+  double min_temperature_ = 0.05;
+  double max_temperature_ = 10.0;
 };
 
 #endif

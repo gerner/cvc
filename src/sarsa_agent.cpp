@@ -118,7 +118,7 @@ SARSALearner::SARSALearner(int learner_id, double n, double g, double b1,
       r_(r),
       learn_logger_(learn_logger) {}
 
-void SARSALearner::Learn(CVC* cvc, Experience* experience) {
+double SARSALearner::Learn(CVC* cvc, Experience* experience) {
   Action* action = experience->action_.get();
 
   assert(action);
@@ -219,6 +219,8 @@ void SARSALearner::Learn(CVC* cvc, Experience* experience) {
   // according to Hendrickson, the difference between the old score and the new
   // one should be the error computed above times the learning rate
   //assert(action->GetScore() - Score(action->GetFeatureVector()) == dL_dy * n_);
+
+  return dL_dy;
 }
 
 double SARSALearner::ComputeDiscountedRewards(
@@ -320,9 +322,16 @@ void SARSAAgent::Learn(CVC* cvc) {
   }
 
   // 2. learn if necessary
+  // n-step SARSA
   if(experience_queue_.size() == n_steps_) {
+    // we learn from all of the experiences n_steps ago
+    // recall, multiple experiences might happen at the same step
+    // because, e.g. response actions that resolve in the same tick
     for(auto& experience : experience_queue_.back()) {
-      experience->learner_->Learn(cvc, experience.get());
+      double dL_dy = experience->learner_->Learn(cvc, experience.get());
+      // TODO: do we need to worry about GetScore returning a stale score, which
+      // wasn't used to product dL_dy?
+      policy_->UpdateGrad(dL_dy, experience->action_->GetScore());
     }
     //toss the experiences from which we just learned (at the back)
     experience_queue_.pop_back();

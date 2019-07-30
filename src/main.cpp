@@ -54,12 +54,17 @@ int main(int argc, char** argv) {
     agents.push_back(a.back().get());
   }
 
+  //learning agents
+
   //double policy_greedy_e = 0.05;
-  double policy_temperature = 0.5;
+  //double policy_temperature = 0.5;
+  double policy_initial_temperature = 50.0;
+  //double policy_decay = 0.001;
+  //double policy_scale = 0.001;
   double n = 0.001;
   double b1 = 0.9;
   double b2 = 0.999;
-  double g = 0.8;
+  double g = 0.9;
   int n_steps = 100;
   int num_learning_agents = 5;
 
@@ -107,7 +112,11 @@ int main(int argc, char** argv) {
 
   //scf.ReadWeights();
   //EpsilonGreedyPolicy learning_policy(policy_greedy_e, &policy_logger);
-  SoftmaxPolicy learning_policy(policy_temperature, &policy_logger);
+  //SoftmaxPolicy learning_policy(policy_temperature, &policy_logger);
+  /*GradSensitiveSoftmaxPolicy learning_policy(
+      policy_initial_temperature, policy_decay, policy_scale, &policy_logger);*/
+  AnnealingSoftmaxPolicy learning_policy(policy_initial_temperature,
+                                         &policy_logger);
   int num_non_learning_agents = agents.size();
   for (int i = 0; i < num_learning_agents; i++) {
     c.push_back(std::make_unique<Character>(i + num_non_learning_agents,

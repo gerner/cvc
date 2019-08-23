@@ -279,11 +279,12 @@ std::unique_ptr<Experience> SoftmaxPolicy::ChooseAction(
   double sum_score = 0.0;
 
   //sort by score so index corresponds to ordering
+  //however, this is quite slow if there are a lot of choices
   //this is useful for logging the position of the option chosen for analysis
-  std::sort((*actions).begin(), (*actions).end(),
+  /*std::sort((*actions).begin(), (*actions).end(),
             [](std::unique_ptr<Experience>& a, std::unique_ptr<Experience>& b) {
               return a->action_->GetScore() > b->action_->GetScore();
-            });
+            });*/
 
   for (size_t i = 0; i < actions->size(); i++) {
     scores[i] = exp((*actions)[i]->action_->GetScore() / temperature_);

@@ -98,7 +98,7 @@ class SARSAActionFactory {
 
   SARSAActionFactory(std::unique_ptr<SARSALearner> learner);
 
-  SARSALearner* GetLearner() { return learner_.get(); }
+  //SARSALearner* GetLearner() { return learner_.get(); }
 
   virtual double EnumerateActions(
       CVC* cvc, Character* character,

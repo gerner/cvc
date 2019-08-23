@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
 
   ProbDistPolicy pdp;
 
-  int num_heuristic_agents = 5;
+  int num_heuristic_agents = 0;
 
   for (int i = 0; i < num_heuristic_agents; i++) {
     c.push_back(std::make_unique<Character>(i, money_dist(random_generator)));
@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
   double b2 = 0.999;
   double g = 0.9;
   int n_steps = 100;
-  int num_learning_agents = 5;
+  int num_learning_agents = 15;
 
   //learning agents
   FILE* learn_log = fopen("/tmp/learn_log", "a");
@@ -131,6 +131,7 @@ int main(int argc, char** argv) {
     agents.push_back(a.back().get());
   }
 
+  //set up game environment
   FILE* action_log = fopen("/tmp/action_log", "a");
   setvbuf(action_log, NULL, _IOLBF, 1024*10);
   Logger action_logger = Logger("action", action_log, WARN);
@@ -141,10 +142,11 @@ int main(int argc, char** argv) {
   std::unique_ptr<DecisionEngine> d =
       DecisionEngine::Create(agents, &cvc, &action_logger);
 
+  //run the simulation
   logger.Log(INFO, "running the game loop\n");
 
   cvc.LogState();
-  for (; cvc.Now() < 100000;) {
+  for (; cvc.Now() < 10000;) {
     d->RunOneGameLoop();
 
     if(cvc.Now() % 10000 == 0) {

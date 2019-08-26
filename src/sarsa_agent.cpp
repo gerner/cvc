@@ -10,7 +10,14 @@
 #include "action.h"
 #include "sarsa_agent.h"
 
-void SARSALearner::ReadWeights(
+template <int N>
+double ExperienceImpl<N>::Learn(CVC* cvc) {
+  return learner_->Learn(cvc, this);
+}
+
+
+template <int N>
+void SARSALearner<N>::ReadWeights(
     const char* weight_file,
     std::unordered_map<std::string, SARSALearner*> learners) {
   FILE* weights = fopen(weight_file, "r");
@@ -40,7 +47,8 @@ void SARSALearner::ReadWeights(
   fclose(weights);
 }
 
-void SARSALearner::WriteWeights(
+template <int N>
+void SARSALearner<N>::WriteWeights(
     const char* weight_file,
     std::unordered_map<std::string, SARSALearner*> learners) {
   FILE* weights = fopen(weight_file, "w");
@@ -61,68 +69,55 @@ void SARSALearner::WriteWeights(
   fclose(weights);
 }
 
-void SARSALearner::WriteWeights(FILE* weights_file) {
-  size_t num_weights = weights_.size();
+template <int N>
+void SARSALearner<N>::WriteWeights(FILE* weights_file) {
+  size_t num_weights = N;
   fwrite(&num_weights, sizeof(size_t), 1, weights_file);
   for(double w : weights_) {
     fwrite(&w, sizeof(double), 1, weights_file);
   }
 }
 
-void SARSALearner::ReadWeights(FILE* weights_file) {
+template <int N>
+void SARSALearner<N>::ReadWeights(FILE* weights_file) {
   size_t count;
   int ret = fread(&count, sizeof(size_t), 1, weights_file);
   assert(1 == ret);
-  assert(count == weights_.size());
-  weights_.clear();
-  for(size_t i=0; i<count; i++) {
+  assert(count == N);
+  for(size_t i=0; i<N; i++) {
     double w;
     fread(&w, sizeof(double), 1, weights_file);
-    weights_.push_back(w);
+    weights_[i] = w;
   }
 }
 
-std::unique_ptr<SARSALearner> SARSALearner::Create(
+template <int N>
+std::unique_ptr<SARSALearner<N>> SARSALearner<N>::Create(
     int learner_id, double n, double g, double b1, double b2,
-    std::mt19937& random_generator, size_t num_features, Logger* learn_logger) {
-  std::vector<double> weights;
-  std::vector<Stats> stats;
-
-  std::vector<double> m;
-  std::vector<double> r;
+    std::mt19937& random_generator, Logger* learn_logger) {
+  double weights[N];
+  Stats stats[N];
+  double m[N];
+  double r[N];
 
   std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
-  for (size_t i = 0; i < num_features; i++) {
-    weights.push_back(weight_dist(random_generator));
-    m.push_back(0.0);
-    r.push_back(0.0);
-    stats.push_back(Stats());
+  for (size_t i = 0; i < N; i++) {
+    weights[i] = weight_dist(random_generator);
+    m[i] = 0.0;
+    r[i] = 0.0;
+    stats[i] = Stats();
   }
 
   return std::make_unique<SARSALearner>(learner_id, n, g, b1, b2, weights,
                                         stats, m, r, learn_logger);
 }
 
-SARSALearner::SARSALearner(int learner_id, double n, double g, double b1,
-                           double b2, std::vector<double> weights,
-                           std::vector<Stats> s, std::vector<double> m,
-                           std::vector<double> r, Logger* learn_logger)
-    : learner_id_(learner_id),
-      n_(n),
-      g_(g),
-      weights_(weights),
-      feature_stats_(s),
-      b1_(b1),
-      b2_(b2),
-      m_(m),
-      r_(r),
-      learn_logger_(learn_logger) {}
-
-double SARSALearner::Learn(CVC* cvc, Experience* experience) {
+template <int N>
+double SARSALearner<N>::Learn(CVC* cvc, ExperienceImpl<N>* experience) {
   Action* action = experience->action_.get();
 
   assert(action);
-  double updated_score = Score(action->GetFeatureVector());
+  double updated_score = Score(experience->features_);
 
   //SARSA-FA:
   //from https://artint.info/html/ArtInt_272.html
@@ -167,24 +162,25 @@ double SARSALearner::Learn(CVC* cvc, Experience* experience) {
                      truth_estimate,
                      experience->next_experience_->score_ - experience->score_);
 
+  //TODO: clean up these needless lines
   //this might not be the case if someone has changed the weights since we
   //assert(action->GetScore() == Score(action->GetFeatureVector()));
   // update the weights
-  assert(action->GetFeatureVector().size() == weights_.size());
+  //assert(action->GetFeatureVector().size() == weights_.size());
   //double n = n_;// / (double)(action->GetFeatureVector().size());
   //hang on to the sum of the partials for debugging
   double sum_d = 0.0;
   t_ += 1;
-  for(size_t i = 0; i < action->GetFeatureVector().size(); i++) {
+  for(size_t i = 0; i < N; i++) {
     //keep some stats on the features for later analysis
-    feature_stats_[i].Update(action->GetFeatureVector()[i]);
+    feature_stats_[i].Update(experience->features_[i]);
 
     //simple learning
     //double weight_update = n * dL_dy * action->GetFeatureVector()[i];
 
     //partial derivative of loss w.r.t. this weight
     //by chain rule dL_dy * dy_dw
-    double dL_dw = dL_dy*action->GetFeatureVector()[i];
+    double dL_dw = dL_dy * experience->features_[i];
 
     // ADAM optimizier
     // as per https://arxiv.org/pdf/1412.6980.pdf
@@ -200,10 +196,10 @@ double SARSALearner::Learn(CVC* cvc, Experience* experience) {
     assert(!std::isinf(weight_update));
     assert(!std::isnan(weight_update));
     weights_[i] = weights_[i] - weight_update;
-    sum_d += dL_dy * action->GetFeatureVector()[i];
+    sum_d += dL_dy * experience->features_[i];
   }
 
-  double new_score = Score(action->GetFeatureVector());
+  double new_score = Score(experience->features_);
   learn_logger_->Log(DEBUG, "after update:\t%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
                      action->GetActionId(), new_score, updated_score,
                      truth_estimate, (new_score - updated_score), dL_dy,
@@ -223,7 +219,8 @@ double SARSALearner::Learn(CVC* cvc, Experience* experience) {
   return dL_dy;
 }
 
-double SARSALearner::ComputeDiscountedRewards(
+template <int N>
+double SARSALearner<N>::ComputeDiscountedRewards(
     const Experience* experience) const {
   const Experience* e = experience;
   assert(e->next_experience_);
@@ -239,25 +236,21 @@ double SARSALearner::ComputeDiscountedRewards(
     e = e->next_experience_;
     i++;
   }
-  assert(e->learner_);
 
-  return discounted_rewards + pow(g_, i) * e->learner_->Score(e->action_->GetFeatureVector());
+  return discounted_rewards + pow(g_, i) * e->PredictScore();
 }
 
-double SARSALearner::Score(const std::vector<double>& features) {
+template <int N>
+double SARSALearner<N>::Score(const double features[N]) const {
   //first feature had beter be bias term
-  assert(features.size() == weights_.size());
   double score = 0.0;
-  for(size_t i = 0; i < features.size(); i++) {
+  for(size_t i = 0; i < N; i++) {
     score += weights_[i] * features[i];
   }
   assert(!std::isinf(score));
   assert(!std::isnan(score));
   return score;
 }
-
-SARSAActionFactory::SARSAActionFactory(std::unique_ptr<SARSALearner> learner)
-    : learner_(std::move(learner)) {}
 
 Action* SARSAAgent::ChooseAction(CVC* cvc) {
   //if we have what was previously the next action, stick it in the set of
@@ -328,10 +321,11 @@ void SARSAAgent::Learn(CVC* cvc) {
     // recall, multiple experiences might happen at the same step
     // because, e.g. response actions that resolve in the same tick
     for(auto& experience : experience_queue_.back()) {
-      double dL_dy = experience->learner_->Learn(cvc, experience.get());
+      double dL_dy = experience->Learn(cvc);
       // TODO: do we need to worry about GetScore returning a stale score, which
       // wasn't used to product dL_dy?
-      policy_->UpdateGrad(dL_dy, experience->action_->GetScore());
+      // TODO: why have this at all?
+      //policy_->UpdateGrad(dL_dy, experience->action_->GetScore());
     }
     //toss the experiences from which we just learned (at the back)
     experience_queue_.pop_back();
@@ -360,3 +354,6 @@ double SARSAAgent::Score(CVC* cvc) {
   //return cvc->GetOpinionOfStats(GetCharacter()->GetId()).mean_ - cvc->GetOpinionStats().mean_;
 }
 
+template class SARSALearner<0>;
+template class SARSALearner<6>;
+template class SARSALearner<10>;

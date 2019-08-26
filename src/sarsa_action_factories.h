@@ -14,73 +14,114 @@
 class SARSAGiveActionFactory : public SARSAActionFactory {
  public:
   static std::unique_ptr<SARSAGiveActionFactory> Create(
-      std::unique_ptr<SARSALearner> learner);
+      SARSALearner<10>* learner) {
+    return std::make_unique<SARSAGiveActionFactory>(learner);
+  }
 
-  SARSAGiveActionFactory(std::unique_ptr<SARSALearner> learner);
+  SARSAGiveActionFactory(SARSALearner<10>* learner)
+      : learner_(learner) {}
 
   double EnumerateActions(
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Experience>>* actions) override;
+
+ private:
+  SARSALearner<10>* learner_;
 };
 
 class SARSAAskActionFactory : public SARSAActionFactory {
  public:
   static std::unique_ptr<SARSAAskActionFactory> Create(
-      std::unique_ptr<SARSALearner> learner);
+      SARSALearner<10>* learner) {
+    return std::make_unique<SARSAAskActionFactory>(learner);
+  }
 
-  SARSAAskActionFactory(std::unique_ptr<SARSALearner> learner);
+  SARSAAskActionFactory(SARSALearner<10>* learner)
+      : learner_(learner) {}
 
   double EnumerateActions(
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Experience>>* actions) override;
+
+ private:
+  SARSALearner<10>* learner_;
 };
 
 class SARSAAskSuccessResponseFactory : public SARSAResponseFactory {
  public:
   static std::unique_ptr<SARSAAskSuccessResponseFactory> Create(
-      std::unique_ptr<SARSALearner> learner);
+      SARSALearner<10>* learner) {
+    return std::make_unique<SARSAAskSuccessResponseFactory>(learner);
+  }
 
-  SARSAAskSuccessResponseFactory(std::unique_ptr<SARSALearner> learner);
+
+  SARSAAskSuccessResponseFactory(SARSALearner<10>* learner)
+      : learner_(learner) {}
 
   double Respond(
       CVC* cvc, Character* character, Action* action,
       std::vector<std::unique_ptr<Experience>>* actions) override;
+
+ private:
+  SARSALearner<10>* learner_;
 };
 
 class SARSAAskFailureResponseFactory : public SARSAResponseFactory {
  public:
   static std::unique_ptr<SARSAAskFailureResponseFactory> Create(
-      std::unique_ptr<SARSALearner> learner);
+      SARSALearner<10>* learner) {
+    return std::make_unique<SARSAAskFailureResponseFactory>(
+        learner);
+  }
 
-  SARSAAskFailureResponseFactory(std::unique_ptr<SARSALearner> learner);
+
+  SARSAAskFailureResponseFactory(SARSALearner<10>* learner)
+      : learner_(learner) {}
 
   double Respond(
       CVC* cvc, Character* character, Action* action,
       std::vector<std::unique_ptr<Experience>>* actions) override;
+
+ private:
+  SARSALearner<10>* learner_;
 };
 
 class SARSAWorkActionFactory : public SARSAActionFactory {
  public:
   static std::unique_ptr<SARSAWorkActionFactory> Create(
-      std::unique_ptr<SARSALearner> learner);
+      SARSALearner<6>* learner) {
+    return std::make_unique<SARSAWorkActionFactory>(learner);
+  }
 
-  SARSAWorkActionFactory(std::unique_ptr<SARSALearner> learner);
+
+  SARSAWorkActionFactory(SARSALearner<6>* learner)
+      : learner_(learner) {}
 
   double EnumerateActions(
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Experience>>* actions) override;
+
+ private:
+  SARSALearner<6>* learner_;
 };
 
 class SARSATrivialActionFactory : public SARSAActionFactory {
  public:
   static std::unique_ptr<SARSATrivialActionFactory> Create(
-      std::unique_ptr<SARSALearner> learner);
+      SARSALearner<6>* learner) {
+    return std::make_unique<SARSATrivialActionFactory>(learner);
+  }
 
-  SARSATrivialActionFactory(std::unique_ptr<SARSALearner> learner);
+
+  SARSATrivialActionFactory(SARSALearner<6>* learner)
+      : learner_(learner) {}
 
   double EnumerateActions(
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Experience>>* actions) override;
+
+ private:
+  SARSALearner<6>* learner_;
 };
 
 class EpsilonGreedyPolicy : public SARSAActionPolicy {

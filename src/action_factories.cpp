@@ -34,7 +34,7 @@ double GiveActionFactory::EnumerateActions(
     }
     if (best_target) {
       actions->push_back(std::make_unique<GiveAction>(
-          character, 0.4, std::vector<double>({1.0, 0.2}), best_target, 10.0));
+          character, 0.4, best_target, 10.0));
       score = 0.4;
     }
   }
@@ -74,7 +74,7 @@ double AskActionFactory::EnumerateActions(
   }
   if (best_target) {
     actions->push_back(std::make_unique<AskAction>(
-        character, 0.4, std::vector<double>({0.7, 0.5}), best_target, 10.0));
+        character, 0.4, best_target, 10.0));
     score = 0.4;
   }
   return score;
@@ -98,12 +98,11 @@ double AskResponseFactory::Respond(
 
   if (success) {
     responses->push_back(std::make_unique<AskSuccessAction>(
-        ask_action->GetTarget(), 1.0, std::vector<double>({1.0}),
-        ask_action->GetActor(), ask_action));
+        ask_action->GetTarget(), 1.0, ask_action->GetActor(), ask_action));
   } else {
     // on failure:
-    responses->push_back(std::make_unique<TrivialResponse>(
-        ask_action->GetTarget(), 1.0, std::vector<double>({1.0})));
+    responses->push_back(
+        std::make_unique<TrivialResponse>(ask_action->GetTarget(), 1.0));
     // decrease opinion of actor (refused request)
     /*this->GetActor()->AddRelationship(std::make_unique<RelationshipModifier>(
         this->GetTarget(), gamestate->Now(), gamestate->Now() + 10,
@@ -120,8 +119,7 @@ double WorkActionFactory::EnumerateActions(
     std::vector<std::unique_ptr<Action>>* actions) {
   for (Character* target : cvc->GetCharacters()) {
     if(target->GetOpinionOf(character) > 0.0) {
-      actions->push_back(
-          std::make_unique<WorkAction>(character, 0.1, std::vector<double>()));
+      actions->push_back(std::make_unique<WorkAction>(character, 0.1));
       return 0.3;
     }
   }
@@ -131,8 +129,7 @@ double WorkActionFactory::EnumerateActions(
 double TrivialActionFactory::EnumerateActions(
     CVC* cvc, Character* character,
     std::vector<std::unique_ptr<Action>>* actions) {
-  actions->push_back(
-      std::make_unique<TrivialAction>(character, 0.2, std::vector<double>()));
+  actions->push_back(std::make_unique<TrivialAction>(character, 0.2));
   return 0.2;
 }
 

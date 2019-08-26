@@ -7,8 +7,8 @@
 
 class Action {
  public:
-  Action(const char* action_id, Character* actor, double score, std::vector<double> features);
-  Action(const char* action_id, Character* actor, Character* target, double score, std::vector<double> features);
+  Action(const char* action_id, Character* actor, double score);
+  Action(const char* action_id, Character* actor, Character* target, double score);
   virtual ~Action();
   // Get this action's actor (the character taking the action)
   Character* GetActor() const {
@@ -25,13 +25,6 @@ class Action {
     target_ = target;
   }
 
-  std::vector<double> GetFeatureVector() const {
-    return feature_vector_;
-  }
-  void SetFeatureVector(std::vector<double> feature_vector) {
-    feature_vector_ = feature_vector;
-  }
-
   // Get the score this action's been given
   // it's assumed this is normalized against alternative actions
   // I'm not thrilled with this detail which makes it make sense ONLY in the
@@ -41,13 +34,6 @@ class Action {
   }
   void SetScore(double score) {
     score_ = score;
-  }
-
-  double GetReward() const {
-    return reward_;
-  }
-  void SetReward(double reward) {
-    reward_ = reward;
   }
 
   const char* GetActionId() const {
@@ -68,14 +54,11 @@ class Action {
   Character* actor_;
   Character* target_;
   double score_;
-  double reward_;
-  std::vector<double> feature_vector_;
-
 };
 
 class TrivialAction : public Action {
  public:
-  TrivialAction(Character* actor, double score, std::vector<double> features);
+  TrivialAction(Character* actor, double score);
 
   // implementation of Action
   bool IsValid(const CVC* gamestate);
@@ -84,7 +67,7 @@ class TrivialAction : public Action {
 
 class TrivialResponse : public Action {
  public:
-  TrivialResponse(Character* actor, double score, std::vector<double> features);
+  TrivialResponse(Character* actor, double score);
 
   // implementation of Action
   bool IsValid(const CVC* gamestate);
@@ -93,7 +76,7 @@ class TrivialResponse : public Action {
 
 class WorkAction : public Action {
  public:
-  WorkAction(Character* actor, double score, std::vector<double> features);
+  WorkAction(Character* actor, double score);
 
   // implementation of Action
   bool IsValid(const CVC* gamestate);
@@ -104,8 +87,8 @@ class WorkAction : public Action {
 // increasing with opinion
 class AskAction : public Action {
  public:
-  AskAction(Character* actor, double score, std::vector<double> features,
-            Character* target, double request_amount);
+  AskAction(Character* actor, double score, Character* target,
+            double request_amount);
 
   // implementation of Action
   bool IsValid(const CVC* gamestate);
@@ -122,8 +105,8 @@ class AskAction : public Action {
 
 class AskSuccessAction : public Action {
  public:
-  AskSuccessAction(Character* actor, double score, std::vector<double> features,
-                   Character* target, AskAction* source_action);
+  AskSuccessAction(Character* actor, double score, Character* target,
+                   AskAction* source_action);
 
   // implementation of Action
   bool IsValid(const CVC* gamestate);
@@ -137,7 +120,7 @@ class AskSuccessAction : public Action {
 // increasing with opinion, detected with chance increasing with opinion
 class StealAction : public Action {
  public:
-  StealAction(Character* actor, double score, std::vector<double> features);
+  StealAction(Character* actor, double score);
 
   // implementation of Action
   bool IsValid(const CVC* gamestate);
@@ -151,8 +134,8 @@ class StealAction : public Action {
 // other opinion modifiers
 class GiveAction : public Action {
  public:
-  GiveAction(Character* actor, double score, std::vector<double> features,
-             Character* target, double gift_amount);
+  GiveAction(Character* actor, double score, Character* target,
+             double gift_amount);
 
   // implementation of Action
   bool IsValid(const CVC* gamestate);

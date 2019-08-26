@@ -42,7 +42,8 @@ struct Role {
   double contributions_at_end_;
 };
 
-class CirriculumVitae {
+//records career history, but also the crunchedin representation of a character
+class CurriculumVitae {
  public:
   double TotalContribution() const {
     double score = 0.0;

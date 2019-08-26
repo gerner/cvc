@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
 
   ProbDistPolicy pdp;
 
-  int num_heuristic_agents = 5;
+  int num_heuristic_agents = 0;
 
   for (int i = 0; i < num_heuristic_agents; i++) {
     c.push_back(std::make_unique<Character>(i, money_dist(random_generator)));
@@ -57,8 +57,8 @@ int main(int argc, char** argv) {
   //learning agents
 
   //double policy_greedy_e = 0.05;
-  //double policy_temperature = 0.5;
-  double policy_initial_temperature = 50.0;
+  double policy_temperature = 0.5;
+  //double policy_initial_temperature = 50.0;
   //double policy_decay = 0.001;
   //double policy_scale = 0.001;
   double n = 0.001;
@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
   double b2 = 0.999;
   double g = 0.9;
   int n_steps = 100;
-  int num_learning_agents = 5;
+  int num_learning_agents = 15;
 
   //learning agents
   FILE* learn_log = fopen("/tmp/learn_log", "a");
@@ -82,41 +82,47 @@ int main(int argc, char** argv) {
   setvbuf(policy_log, NULL, _IOLBF, 1024*10);
   Logger policy_logger("policy", policy_log, INFO);
 
+  std::unique_ptr<SARSALearner<10>> learner_sgaf = SARSALearner<10>::Create(
+          1, n, g, b1, b2, random_generator, &give_learn_logger);
   std::unique_ptr<SARSAGiveActionFactory> sgaf =
-      SARSAGiveActionFactory::Create(SARSALearner::Create(
-          1, n, g, b1, b2, random_generator, 10, &give_learn_logger));
+      SARSAGiveActionFactory::Create(learner_sgaf.get());
+  std::unique_ptr<SARSALearner<10>> learner_saaf = SARSALearner<10>::Create(
+          2, n, g, b1, b2, random_generator, &ask_learn_logger);
   std::unique_ptr<SARSAAskActionFactory> saaf =
-      SARSAAskActionFactory::Create(SARSALearner::Create(
-          2, n, g, b1, b2, random_generator, 10, &ask_learn_logger));
+      SARSAAskActionFactory::Create(learner_saaf.get());
+  std::unique_ptr<SARSALearner<6>> learner_staf = SARSALearner<6>::Create(
+          3, n, g, b1, b2, random_generator, &trivial_learn_logger);
   std::unique_ptr<SARSATrivialActionFactory> staf =
-      SARSATrivialActionFactory::Create(SARSALearner::Create(
-          3, n, g, b1, b2, random_generator, 6, &trivial_learn_logger));
+      SARSATrivialActionFactory::Create(learner_staf.get());
+  std::unique_ptr<SARSALearner<6>> learner_swaf = SARSALearner<6>::Create(
+          4, n, g, b1, b2, random_generator, &work_learn_logger);
   std::unique_ptr<SARSAWorkActionFactory> swaf =
-      SARSAWorkActionFactory::Create(SARSALearner::Create(
-          4, n, g, b1, b2, random_generator, 6, &work_learn_logger));
+      SARSAWorkActionFactory::Create(learner_swaf.get());
 
   std::vector<SARSAActionFactory*> sarsa_action_factories({
       sgaf.get(), saaf.get(), swaf.get(), staf.get()});
   /*std::vector<SARSAActionFactory*> sarsa_action_factories({
       staf.get(), swaf.get()});*/
 
+  std::unique_ptr<SARSALearner<10>> learner_asrf = SARSALearner<10>::Create(
+          5, n, g, b1, b2, random_generator, &ask_success_learn_logger);
   std::unique_ptr<SARSAAskSuccessResponseFactory> asrf =
-      SARSAAskSuccessResponseFactory::Create(SARSALearner::Create(
-          5, n, g, b1, b2, random_generator, 10, &ask_success_learn_logger));
+      SARSAAskSuccessResponseFactory::Create(learner_asrf.get());
+  std::unique_ptr<SARSALearner<10>> learner_afrf = SARSALearner<10>::Create(
+          6, n, g, b1, b2, random_generator, &ask_failure_learn_logger);
   std::unique_ptr<SARSAAskFailureResponseFactory> afrf =
-      SARSAAskFailureResponseFactory::Create(SARSALearner::Create(
-          6, n, g, b1, b2, random_generator, 10, &ask_failure_learn_logger));
+      SARSAAskFailureResponseFactory::Create(learner_afrf.get());
 
   std::unordered_map<std::string, std::set<SARSAResponseFactory*>>
       sarsa_response_factories({{"AskAction", {asrf.get(), afrf.get()}}});
 
   //scf.ReadWeights();
   //EpsilonGreedyPolicy learning_policy(policy_greedy_e, &policy_logger);
-  //SoftmaxPolicy learning_policy(policy_temperature, &policy_logger);
+  SoftmaxPolicy learning_policy(policy_temperature, &policy_logger);
   /*GradSensitiveSoftmaxPolicy learning_policy(
       policy_initial_temperature, policy_decay, policy_scale, &policy_logger);*/
-  AnnealingSoftmaxPolicy learning_policy(policy_initial_temperature,
-                                         &policy_logger);
+  /*AnnealingSoftmaxPolicy learning_policy(policy_initial_temperature,
+                                         &policy_logger);*/
   int num_non_learning_agents = agents.size();
   for (int i = 0; i < num_learning_agents; i++) {
     c.push_back(std::make_unique<Character>(i + num_non_learning_agents,
@@ -131,6 +137,7 @@ int main(int argc, char** argv) {
     agents.push_back(a.back().get());
   }
 
+  //set up game environment
   FILE* action_log = fopen("/tmp/action_log", "a");
   setvbuf(action_log, NULL, _IOLBF, 1024*10);
   Logger action_logger = Logger("action", action_log, WARN);
@@ -141,10 +148,11 @@ int main(int argc, char** argv) {
   std::unique_ptr<DecisionEngine> d =
       DecisionEngine::Create(agents, &cvc, &action_logger);
 
+  //run the simulation
   logger.Log(INFO, "running the game loop\n");
 
   cvc.LogState();
-  for (; cvc.Now() < 100000;) {
+  for (; cvc.Now() < 10000;) {
     d->RunOneGameLoop();
 
     if(cvc.Now() % 10000 == 0) {

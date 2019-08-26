@@ -13,15 +13,15 @@
 #include "action.h"
 #include "decision_engine.h"
 
-class SARSALearner;
-
-struct Experience {
+class Experience {
+ public:
   Experience(std::unique_ptr<Action>&& action, double score,
-             Experience* next_experience, SARSALearner* learner)
+             Experience* next_experience)
       : action_(std::move(action)),
         score_(score),
-        next_experience_(next_experience),
-        learner_(learner) {}
+        next_experience_(next_experience) {}
+
+  virtual ~Experience() {}
 
   std::unique_ptr<Action> action_; //the action we took (or will take)
   double score_; //score at the time we chose the action
@@ -29,9 +29,37 @@ struct Experience {
   // a prediction of the future score from here?
   Experience* next_experience_; //the next action we'll take
 
-  SARSALearner* learner_;
+  virtual double Learn(CVC* cvc) = 0;
+  virtual double PredictScore() const = 0;
 };
 
+template <int N>
+class SARSALearner;
+
+template <int N>
+class ExperienceImpl : public Experience {
+ public:
+  ExperienceImpl(std::unique_ptr<Action> action, double score,
+                 Experience* next_experience, double features[N],
+                 SARSALearner<N>* learner)
+      : Experience(std::move(action), score, next_experience),
+        learner_(learner) {
+          for(int i=0; i<N; i++) {
+            features_[i] = features[i];
+          }
+        }
+
+  double features_[N];
+  SARSALearner<N>* learner_;
+
+  double Learn(CVC* cvc) override;
+
+  double PredictScore() const override {
+    return learner_->Score(features_);
+  }
+};
+
+template <int N>
 class SARSALearner {
  public:
   static void ReadWeights(
@@ -47,25 +75,39 @@ class SARSALearner {
   static std::unique_ptr<SARSALearner> Create(int learner_id, double n,
                                               double g, double b1, double b2,
                                               std::mt19937& random_generator,
-                                              size_t num_features,
                                               Logger* learn_logger);
 
   SARSALearner(int learner_id, double n, double g, double b1, double b2,
-               std::vector<double> weights, std::vector<Stats> s,
-               std::vector<double> m, std::vector<double> r,
-               Logger* learn_logger);
+               double weights[N], Stats s[N],
+               double m[N],  double r[N],
+               Logger* learn_logger)
+    : learner_id_(learner_id),
+      n_(n),
+      g_(g),
+      b1_(b1),
+      b2_(b2),
+      learn_logger_(learn_logger) {
+    for(int i=0; i<N; i++) {
+      weights_[i] = weights[i];
+      feature_stats_[i] = s[i];
+      m_[i] = m[i];
+      r_[i] = r[i];
+    }
+  }
 
-  double Learn(CVC* cvc, Experience* experience);
+  double Learn(CVC* cvc, ExperienceImpl<N>* experience);
 
   void WriteWeights(FILE* weights_file);
   void ReadWeights(FILE* weights_file);
 
-  double Score(const std::vector<double>& features);
+  double Score(const double features[N]) const;
   double ComputeDiscountedRewards(const Experience* experience) const;
 
-  std::unique_ptr<Experience> WrapAction(std::unique_ptr<Action> action) {
-    return std::make_unique<Experience>(std::move(action), 0.0, nullptr,
-                                        this);
+  std::unique_ptr<Experience> WrapAction(double features[N],
+                                         std::unique_ptr<Action> action) {
+    action->SetScore(Score(features));
+    return std::make_unique<ExperienceImpl<N>>(std::move(action), 0.0, nullptr,
+                                               features, this);
   }
 
  private:
@@ -73,9 +115,9 @@ class SARSALearner {
 
   double n_; //learning rate
   double g_; //discount factor
-  std::vector<double> weights_;
+  double weights_[N];
 
-  std::vector<Stats> feature_stats_;
+  Stats feature_stats_[N];
 
   //adam optimizer params and state
   double b1_;
@@ -85,8 +127,8 @@ class SARSALearner {
   //TODO: setting learning epoch always to 0 means we can't load state
   //so this would need to get serialized out
   int t_=0;
-  std::vector<double> m_;
-  std::vector<double> r_;
+  double m_[N];
+  double r_[N];
 
   Logger* learn_logger_;
 };
@@ -96,78 +138,70 @@ class SARSAActionFactory {
  public:
   virtual ~SARSAActionFactory() {}
 
-  SARSAActionFactory(std::unique_ptr<SARSALearner> learner);
-
-  SARSALearner* GetLearner() { return learner_.get(); }
-
   virtual double EnumerateActions(
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Experience>>* actions) = 0;
 
  protected:
+  double* StandardFeatures(CVC* cvc, Character* character,
+                        double* features) const {
+    features[0] = 1.0; //bias
+    features[1] = log(character->GetMoney());
+    features[2] = 0.0;//log(cvc->GetMoneyStats().mean_);
+    features[3] = 0.0;//cvc->GetOpinionStats().mean_/100.0;
+    features[4] = 0.0;//cvc->GetOpinionByStats(character->GetId()).mean_/100.0;
+    features[5] = 0.0;//cvc->GetOpinionOfStats(character->GetId()).mean_/100.0;
 
-  std::vector<double> Features(CVC* cvc, Character* character) const {
-    return std::vector<double>({
-        1.0, //bias
-        log(character->GetMoney()),
-        log(cvc->GetMoneyStats().mean_),
-        cvc->GetOpinionStats().mean_/100.0,
-        cvc->GetOpinionByStats(character->GetId()).mean_/100.0,
-        cvc->GetOpinionOfStats(character->GetId()).mean_/100.0});
-  }
-
-  std::vector<double> TargetFeatures(CVC* cvc, Character* character,
-                                     Character* target) const {
-    std::vector<double> features = Features(cvc, character);
-    std::vector<double> target_features({
-        character->GetOpinionOf(target)/100.0,
-        target->GetOpinionOf(character)/100.0,
-        log(target->GetMoney()),
-        1.0}); //TODO: should be relationship between character and target money
-    features.insert(features.end(), target_features.begin(),
-                    target_features.end());
     return features;
   }
 
-  std::unique_ptr<SARSALearner> learner_;
+  double* TargetFeatures(CVC* cvc, Character* character,
+                                     Character* target,
+                                     double* features) const {
+    StandardFeatures(cvc, character, features);
+    features[6] = 0.0;//character->GetOpinionOf(target) / 100.0;
+    features[7] = 0.0;//target->GetOpinionOf(character) / 100.0;
+    features[8] = log(target->GetMoney());
+    //TODO: this should be relationship between character and target money
+    features[9] = 1.0;
+
+    return features;
+  }
+
 };
 
 // just one kind of response, one model
 class SARSAResponseFactory {
  public:
-  SARSALearner* GetLearner() { return learner_.get(); }
-
-  SARSAResponseFactory(std::unique_ptr<SARSALearner> learner)
-      : learner_(std::move(learner)) {}
 
   virtual double Respond(
       CVC* cvc, Character* character, Action* action,
       std::vector<std::unique_ptr<Experience>>* actions) = 0;
  protected:
-  std::vector<double> Features(CVC* cvc, Character* character) const {
-    return std::vector<double>({
-        1.0, //bias
-        log(character->GetMoney()),
-        log(cvc->GetMoneyStats().mean_),
-        cvc->GetOpinionStats().mean_/100.0,
-        cvc->GetOpinionByStats(character->GetId()).mean_/100.0,
-        cvc->GetOpinionOfStats(character->GetId()).mean_/100.0});
-  }
+  double* StandardFeatures(CVC* cvc, Character* character,
+                        double* features) const {
+    features[0] = 1.0; //bias
+    features[1] = log(character->GetMoney());
+    features[2] = 0.0;//log(cvc->GetMoneyStats().mean_);
+    features[3] = 0.0;//cvc->GetOpinionStats().mean_/100.0;
+    features[4] = 0.0;//cvc->GetOpinionByStats(character->GetId()).mean_/100.0;
+    features[5] = 0.0;//cvc->GetOpinionOfStats(character->GetId()).mean_/100.0;
 
-  std::vector<double> TargetFeatures(CVC* cvc, Character* character,
-                                     Character* target) const {
-    std::vector<double> features = Features(cvc, character);
-    std::vector<double> target_features({
-        character->GetOpinionOf(target)/100.0,
-        target->GetOpinionOf(character)/100.0,
-        log(target->GetMoney()),
-        1.0}); //TODO: should be relationship between character and target money
-    features.insert(features.end(), target_features.begin(),
-                    target_features.end());
     return features;
   }
 
-  std::unique_ptr<SARSALearner> learner_;
+  double* TargetFeatures(CVC* cvc, Character* character,
+                                     Character* target,
+                                     double* features) const {
+    StandardFeatures(cvc, character, features);
+    features[6] = 0.0;//character->GetOpinionOf(target) / 100.0;
+    features[7] = 0.0;//target->GetOpinionOf(character) / 100.0;
+    features[8] = log(target->GetMoney());
+    //TODO: this should be relationship between character and target money
+    features[9] = 1.0;
+
+    return features;
+  }
 };
 
 class SARSAActionPolicy {

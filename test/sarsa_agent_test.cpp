@@ -3,6 +3,7 @@
 #include "gtest/gtest.h"
 #include "../src/action.h"
 #include "../src/sarsa_agent.h"
+#include "../src/sarsa_learner.h"
 
 struct TestActionState {
   int effects_ = 0;

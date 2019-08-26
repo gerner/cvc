@@ -9,6 +9,7 @@
 #include "decision_engine.h"
 #include "action_factories.h"
 #include "sarsa_agent.h"
+#include "sarsa_learner.h"
 #include "sarsa_action_factories.h"
 
 int main(int argc, char** argv) {

@@ -10,6 +10,7 @@
 
 #include "decision_engine.h"
 #include "sarsa_agent.h"
+#include "sarsa_learner.h"
 
 class SARSAGiveActionFactory : public SARSAActionFactory {
  public:

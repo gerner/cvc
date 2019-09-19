@@ -1,6 +1,7 @@
 build/
 release/
 sanitized-build/
+cov-build/
 .vimrc
 .venv/
 .ipynb_checkpoints/

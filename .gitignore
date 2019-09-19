@@ -2,3 +2,5 @@ build/
 release/
 sanitized-build/
 .vimrc
+.venv/
+.ipynb_checkpoints/

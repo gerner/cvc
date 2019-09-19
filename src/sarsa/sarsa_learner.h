@@ -6,14 +6,16 @@
 #include <cmath>
 #include <memory>
 
-#include "util.h"
-#include "core.h"
+#include "../util.h"
+#include "../core.h"
 #include "sarsa_agent.h"
 
-template <int N>
+namespace cvc::sarsa {
+
+template <size_t N>
 class SARSALearner;
 
-template <int N>
+template <size_t N>
 class ExperienceImpl : public Experience {
  public:
   ExperienceImpl(std::unique_ptr<Action> action, double score,
@@ -21,7 +23,7 @@ class ExperienceImpl : public Experience {
                  SARSALearner<N>* learner)
       : Experience(std::move(action), score, next_experience),
         learner_(learner) {
-          for(int i=0; i<N; i++) {
+          for(size_t i=0; i<N; i++) {
             features_[i] = features[i];
           }
         }
@@ -38,7 +40,7 @@ class ExperienceImpl : public Experience {
   }
 };
 
-template <int N>
+template <size_t N>
 class SARSALearner {
  public:
   static void ReadWeights(
@@ -124,7 +126,7 @@ class SARSALearner {
       b1_(b1),
       b2_(b2),
       learn_logger_(learn_logger) {
-    for(int i=0; i<N; i++) {
+    for(size_t i=0; i<N; i++) {
       weights_[i] = weights[i];
       feature_stats_[i] = s[i];
       m_[i] = m[i];
@@ -318,5 +320,78 @@ class SARSALearner {
 
   Logger* learn_logger_;
 };
+
+// just one kind of action, one model
+template<size_t N>
+class SARSAActionFactory : public ActionFactory {
+ public:
+  static SARSALearner<N> CreateLearner(int learner_id, double n, double g,
+                                       double b1, double b2,
+                                       std::mt19937* random_generator,
+                                       Logger* learn_logger) {
+    double weights[N];
+    Stats stats[N];
+    double m[N];
+    double r[N];
+
+    std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
+    for (size_t i = 0; i < N; i++) {
+      weights[i] = weight_dist(*random_generator);
+      m[i] = 0.0;
+      r[i] = 0.0;
+      stats[i] = Stats();
+    }
+    return SARSALearner<N>(learner_id, n, g, b1, b2, weights, stats, m, r,
+                           learn_logger);
+  }
+
+  SARSAActionFactory(SARSALearner<N> learner) : learner_(learner) {}
+
+  virtual ~SARSAActionFactory() {}
+
+  virtual double EnumerateActions(
+      CVC* cvc, Character* character,
+      std::vector<std::unique_ptr<Experience>>* actions) = 0;
+
+ protected:
+  SARSALearner<N> learner_;
+};
+
+// just one kind of response, one model
+template<size_t N>
+class SARSAResponseFactory : public ResponseFactory {
+ public:
+
+  static SARSALearner<N> CreateLearner(int learner_id, double n, double g,
+                                       double b1, double b2,
+                                       std::mt19937* random_generator,
+                                       Logger* learn_logger) {
+    double weights[N];
+    Stats stats[N];
+    double m[N];
+    double r[N];
+
+    std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
+    for (size_t i = 0; i < N; i++) {
+      weights[i] = weight_dist(*random_generator);
+      m[i] = 0.0;
+      r[i] = 0.0;
+      stats[i] = Stats();
+    }
+    return SARSALearner<N>(learner_id, n, g, b1, b2, weights, stats, m, r,
+                           learn_logger);
+  }
+
+  SARSAResponseFactory(SARSALearner<N> learner) : learner_(learner) {}
+  virtual ~SARSAResponseFactory() {}
+
+  virtual double Respond(
+      CVC* cvc, Character* character, Action* action,
+      std::vector<std::unique_ptr<Experience>>* actions) = 0;
+ protected:
+  SARSALearner<N> learner_;
+};
+
+} //namespace cvc::sarsa
 
 #endif

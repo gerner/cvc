@@ -6,6 +6,8 @@
 
 #include "core.h"
 
+namespace cvc::crunchedin {
+
 class Organization {
  public:
 
@@ -22,6 +24,12 @@ class Organization {
 };
 
 struct Role {
+
+  void Contribute(double contribution) {
+    contribution_ += contribution;
+    org_->contributions_ += contribution;
+  }
+
   Character* character_;
   Organization* org_;
   int start_tick_;
@@ -55,5 +63,41 @@ class CurriculumVitae {
  private:
   std::vector<Role> roles_;
 };
+
+class WorkAction : public Action {
+ public:
+  bool IsValid(const CVC* cvc) override { return true; }
+
+  void TakeEffect(CVC* gamestate) override {
+    role_->Contribute(contribution_);
+  }
+
+ private:
+  Role* role_;
+  double contribution_;
+}
+
+class ApplyAction : public Action {
+ public:
+
+  AskAction(Character* actor, double score, Character* target,
+                     Role* role)
+    : Action(__FUNCTION__, actor, target, score),
+
+
+  bool IsValid(const CVC* cvc) override { return true; }
+
+  void TakeEffect(CVC* gamestate) override {
+    //...just requires a response...
+  }
+
+  bool RequiresResponse() { return true; }
+
+ private:
+
+
+};
+
+} //namespace cvc::crunchedin
 
 #endif

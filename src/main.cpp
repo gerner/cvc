@@ -4,13 +4,41 @@
 #include <vector>
 #include <unordered_map>
 #include <deque>
+#include <chrono>
 
 #include "core.h"
 #include "decision_engine.h"
 #include "action_factories.h"
-#include "sarsa_agent.h"
-#include "sarsa_learner.h"
-#include "sarsa_action_factories.h"
+#include "sarsa/sarsa_agent.h"
+#include "sarsa/sarsa_learner.h"
+#include "sarsa/sarsa_action_factories.h"
+
+class ActionsFactory {
+ public:
+  ActionsFactory(double n, double g, double b1, double b2,
+                 std::mt19937* random_generator, Logger* learn_logger)
+      : n_(n),
+        g_(g),
+        b1_(b1),
+        b2_(b2),
+        random_generator_(random_generator),
+        learn_logger_(learn_logger) {}
+
+  template <class AF>
+  AF CreateFactory() {
+    return AF(AF::CreateLearner(num_learners_++, n_, g_, b1_, b2_,
+                                random_generator_, learn_logger_));
+  }
+ private:
+  int num_learners_ = 0;
+  double n_;
+  double g_;
+  double b1_;
+  double b2_;
+  std::mt19937* random_generator_;
+  Logger* learn_logger_;
+};
+
 
 int main(int argc, char** argv) {
   Logger logger;
@@ -58,7 +86,9 @@ int main(int argc, char** argv) {
   //learning agents
 
   //double policy_greedy_e = 0.05;
-  double policy_temperature = 0.5;
+  double policy_greedy_initial_e = 0.5;
+  double policy_greedy_scale = 0.1;
+  //double policy_temperature = 0.2;
   //double policy_initial_temperature = 50.0;
   //double policy_decay = 0.001;
   //double policy_scale = 0.001;
@@ -67,64 +97,42 @@ int main(int argc, char** argv) {
   double b2 = 0.999;
   double g = 0.9;
   int n_steps = 100;
-  int num_learning_agents = 15;
+  int num_learning_agents = 25;
 
   //learning agents
   FILE* learn_log = fopen("/tmp/learn_log", "a");
   setvbuf(learn_log, NULL, _IOLBF, 1024*10);
-  Logger give_learn_logger("learn_give", learn_log, INFO);
-  Logger ask_learn_logger("learn_ask", learn_log, INFO);
-  Logger ask_success_learn_logger("learn_ask_success", learn_log, INFO);
-  Logger ask_failure_learn_logger("learn_ask_failure", learn_log, INFO);
-  Logger trivial_learn_logger("learn_trivial", learn_log, INFO);
-  Logger work_learn_logger("learn_work", learn_log, INFO);
+  Logger learn_logger("learner", learn_log, INFO);
 
   FILE* policy_log = fopen("/tmp/policy_log", "a");
   setvbuf(policy_log, NULL, _IOLBF, 1024*10);
-  Logger policy_logger("policy", policy_log, INFO);
+  Logger policy_logger("policy", policy_log, WARN);
 
-  std::unique_ptr<SARSALearner<10>> learner_sgaf = SARSALearner<10>::Create(
-          1, n, g, b1, b2, random_generator, &give_learn_logger);
-  std::unique_ptr<SARSAGiveActionFactory> sgaf =
-      SARSAGiveActionFactory::Create(learner_sgaf.get());
-  std::unique_ptr<SARSALearner<10>> learner_saaf = SARSALearner<10>::Create(
-          2, n, g, b1, b2, random_generator, &ask_learn_logger);
-  std::unique_ptr<SARSAAskActionFactory> saaf =
-      SARSAAskActionFactory::Create(learner_saaf.get());
-  std::unique_ptr<SARSALearner<6>> learner_staf = SARSALearner<6>::Create(
-          3, n, g, b1, b2, random_generator, &trivial_learn_logger);
-  std::unique_ptr<SARSATrivialActionFactory> staf =
-      SARSATrivialActionFactory::Create(learner_staf.get());
-  std::unique_ptr<SARSALearner<6>> learner_swaf = SARSALearner<6>::Create(
-          4, n, g, b1, b2, random_generator, &work_learn_logger);
-  std::unique_ptr<SARSAWorkActionFactory> swaf =
-      SARSAWorkActionFactory::Create(learner_swaf.get());
+  ActionsFactory f(n, g, b1, b2, &random_generator, &learn_logger);
+  auto sgaf = f.CreateFactory<cvc::sarsa::SARSAGiveActionFactory>();
+  auto saaf = f.CreateFactory<cvc::sarsa::SARSAAskActionFactory>();
+  auto staf = f.CreateFactory<cvc::sarsa::SARSATrivialActionFactory>();
+  auto swaf = f.CreateFactory<cvc::sarsa::SARSAWorkActionFactory>();
 
-  std::vector<SARSAActionFactory*> sarsa_action_factories({
-      sgaf.get(), saaf.get(), swaf.get(), staf.get()});
-  /*std::vector<SARSAActionFactory*> sarsa_action_factories({
-      staf.get(), swaf.get()});*/
+  std::vector<cvc::sarsa::ActionFactory*> sarsa_action_factories(
+      {&sgaf, &saaf, &swaf, &staf});
 
-  std::unique_ptr<SARSALearner<10>> learner_asrf = SARSALearner<10>::Create(
-          5, n, g, b1, b2, random_generator, &ask_success_learn_logger);
-  std::unique_ptr<SARSAAskSuccessResponseFactory> asrf =
-      SARSAAskSuccessResponseFactory::Create(learner_asrf.get());
-  std::unique_ptr<SARSALearner<10>> learner_afrf = SARSALearner<10>::Create(
-          6, n, g, b1, b2, random_generator, &ask_failure_learn_logger);
-  std::unique_ptr<SARSAAskFailureResponseFactory> afrf =
-      SARSAAskFailureResponseFactory::Create(learner_afrf.get());
+  auto asrf = f.CreateFactory<cvc::sarsa::SARSAAskSuccessResponseFactory>();
+  auto afrf = f.CreateFactory<cvc::sarsa::SARSAAskFailureResponseFactory>();
 
-  std::unordered_map<std::string, std::set<SARSAResponseFactory*>>
-      sarsa_response_factories({{"AskAction", {asrf.get(), afrf.get()}}});
+  std::unordered_map<std::string, std::set<cvc::sarsa::ResponseFactory*>>
+      sarsa_response_factories({{"AskAction", {&asrf, &afrf}}});
 
   //scf.ReadWeights();
-  //EpsilonGreedyPolicy learning_policy(policy_greedy_e, &policy_logger);
-  SoftmaxPolicy learning_policy(policy_temperature, &policy_logger);
-  /*GradSensitiveSoftmaxPolicy learning_policy(
+  //cvc::sarsa::EpsilonGreedyPolicy learning_policy(policy_greedy_e, &policy_logger);
+  cvc::sarsa::DecayingEpsilonGreedyPolicy learning_policy(policy_greedy_initial_e, policy_greedy_scale, &policy_logger);
+  //cvc::sarsa::SoftmaxPolicy learning_policy(policy_temperature, &policy_logger);
+  /*cvc::sarsa::GradSensitiveSoftmaxPolicy learning_policy(
       policy_initial_temperature, policy_decay, policy_scale, &policy_logger);*/
-  /*AnnealingSoftmaxPolicy learning_policy(policy_initial_temperature,
+  /*cvc::sarsa::AnnealingSoftmaxPolicy learning_policy(policy_initial_temperature,
                                          &policy_logger);*/
   int num_non_learning_agents = agents.size();
+  cvc::sarsa::MoneyScorer scorer;
   for (int i = 0; i < num_learning_agents; i++) {
     c.push_back(std::make_unique<Character>(i + num_non_learning_agents,
                                             money_dist(random_generator)));
@@ -132,9 +140,10 @@ int main(int argc, char** argv) {
     characters.back()->traits_[kBackground] = background_dist(random_generator);
     characters.back()->traits_[kLanguage] = language_dist(random_generator);
 
-    a.push_back(std::make_unique<SARSAAgent>(
-        characters.back(), sarsa_action_factories, sarsa_response_factories,
-        &learning_policy, n_steps));
+    a.push_back(
+        std::make_unique<cvc::sarsa::SARSAAgent<cvc::sarsa::MoneyScorer>>(
+            &scorer, characters.back(), sarsa_action_factories,
+            sarsa_response_factories, &learning_policy, n_steps));
     agents.push_back(a.back().get());
   }
 
@@ -150,10 +159,13 @@ int main(int argc, char** argv) {
       DecisionEngine::Create(agents, &cvc, &action_logger);
 
   //run the simulation
+
   logger.Log(INFO, "running the game loop\n");
+  auto start_tick = std::chrono::high_resolution_clock::now();
 
   cvc.LogState();
-  for (; cvc.Now() < 10000;) {
+  int num_ticks = 10000;
+  for (; cvc.Now() < num_ticks;) {
     d->RunOneGameLoop();
 
     if(cvc.Now() % 10000 == 0) {
@@ -161,6 +173,11 @@ int main(int argc, char** argv) {
     }
   }
   cvc.LogState();
+
+  auto end_tick = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> loop_duration = end_tick - start_tick;
+
+  logger.Log(INFO, "ran in %f seconds (%f ticks/sec)\n", loop_duration.count(), ((double)num_ticks)/loop_duration.count());
 
   //scf.WriteWeights();
 

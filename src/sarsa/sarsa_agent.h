@@ -163,7 +163,7 @@ class SARSAAgent : public Agent {
       // recall, multiple experiences might happen at the same step
       // because, e.g. response actions that resolve in the same tick
       for(auto& experience : experience_queue_.back()) {
-        double dL_dy = experience->Learn(cvc);
+        experience->Learn(cvc);
         // TODO: do we need to worry about GetScore returning a stale score, which
         // wasn't used to product dL_dy?
         // TODO: why have this at all?

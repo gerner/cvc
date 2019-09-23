@@ -53,8 +53,9 @@ class Character {
 
  private:
   int id_;
-  int start_tick_;
-  int end_tick_ = std::numeric_limits<int>::max();
+  // TODO: decide if we want to keep track of birth date/end date
+  /*int start_tick_;
+  int end_tick_ = std::numeric_limits<int>::max();*/
   double money_;
   double score_;
 

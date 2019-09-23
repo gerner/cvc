@@ -91,9 +91,9 @@ class AskAction : public Action {
             double request_amount);
 
   // implementation of Action
-  bool IsValid(const CVC* gamestate);
+  bool IsValid(const CVC* gamestate) override;
   bool RequiresResponse() override;
-  void TakeEffect(CVC* gamestate);
+  void TakeEffect(CVC* gamestate) override;
 
   double GetRequestAmount() const {
     return request_amount_;

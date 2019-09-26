@@ -13,10 +13,10 @@ addons:
 
     packages:
       - libstdc++-7-dev
-      - clang-3.6
+      - clang-6.0
 
 install:
-  - "export CXX=clang++-3.6 || true"
+  - "export CXX=clang++-6.0 || true"
 
 before_script:
   - mkdir build

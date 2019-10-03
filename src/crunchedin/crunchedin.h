@@ -4,18 +4,22 @@
 #include <limits>
 #include <vector>
 
-#include "core.h"
+#include "../core.h"
 
 namespace cvc::crunchedin {
 
-class Organization {
- public:
+const size_t CULTURE_DIMENSIONS = 2;
 
- private:
-  Character* ceo_;
-  std::vector<Character*> current_staff_;
+class CurriculumVitae;
+struct Role;
+
+struct Organization {
+  CurriculumVitae* ceo_;
+  std::vector<Role*> current_staff_;
   int start_tick_;
   int end_tick_ = std::numeric_limits<int>::max();
+
+  std::array<double, CULTURE_DIMENSIONS> culture_;
 
   //TODO: contributions is a placeholder for the total score for this org
   //    in the future this ought to be a more complicated function of products,
@@ -25,12 +29,7 @@ class Organization {
 
 struct Role {
 
-  void Contribute(double contribution) {
-    contribution_ += contribution;
-    org_->contributions_ += contribution;
-  }
-
-  Character* character_;
+  CurriculumVitae* cv_;
   Organization* org_;
   int start_tick_;
   int end_tick_ = std::numeric_limits<int>::max();
@@ -60,8 +59,40 @@ class CurriculumVitae {
     }
     return score;
   }
+
+  void Contribute(Role* role, double contribution) {
+    assert(this == role->cv_);
+    // contribution is scaled by cosine similarity (itself scaled to (0,1] )
+    double scale = 0.0;
+    for (size_t i = 0; i < CULTURE_DIMENSIONS; i++) {
+      scale += culture_[i] * role->org_->culture_[i];
+    }
+    // we assume culture vectors are unit vectors
+    assert(scale >= -1.0);
+    assert(scale <= 1.0);
+
+    //scale to (0,1]
+    scale /= 0.5;
+    scale += 0.5;
+
+    contribution *= scale;
+
+    role->contribution_ += contribution;
+    role->org_->contributions_ += contribution;
+  }
+
+  std::array<double, CULTURE_DIMENSIONS> GetCulture() const {
+    return culture_;
+  }
  private:
   std::vector<Role> roles_;
+  std::array<double, CULTURE_DIMENSIONS> culture_;
+};
+
+struct CrunchedIn {
+  std::vector<std::unique_ptr<Organization>> orgs_;
+  std::vector<std::unique_ptr<CurriculumVitae>> cvs_;
+  std::unordered_map<Character*, CurriculumVitae*> cv_lookup_;
 };
 
 class WorkAction : public Action {
@@ -69,23 +100,22 @@ class WorkAction : public Action {
   bool IsValid(const CVC* cvc) override { return true; }
 
   void TakeEffect(CVC* gamestate) override {
-    role_->Contribute(contribution_);
+    role_->cv_->Contribute(role_, contribution_);
   }
 
  private:
   Role* role_;
   double contribution_;
-}
+};
 
-class ApplyAction : public Action {
+/*class ApplyAction : public Action {
  public:
+  AskAction(Character* actor, double score, Character* target, Role* role)
+      : Action(__FUNCTION__, actor, target, score),
 
-  AskAction(Character* actor, double score, Character* target,
-                     Role* role)
-    : Action(__FUNCTION__, actor, target, score),
-
-
-  bool IsValid(const CVC* cvc) override { return true; }
+        bool IsValid(const CVC* cvc) override {
+    return true;
+  }
 
   void TakeEffect(CVC* gamestate) override {
     //...just requires a response...
@@ -95,8 +125,7 @@ class ApplyAction : public Action {
 
  private:
 
-
-};
+};*/
 
 } //namespace cvc::crunchedin
 

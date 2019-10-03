@@ -101,7 +101,7 @@ class CVC {
   void ComputeStats();
 
   std::vector<Character*> characters_;
-  int ticks_;
+  int ticks_ = 0;
   Logger *logger_;
   std::mt19937 random_generator_;
 

@@ -12,6 +12,7 @@
 #include "sarsa/sarsa_agent.h"
 #include "sarsa/sarsa_learner.h"
 #include "sarsa/sarsa_action_factories.h"
+#include "crunchedin/crunchedin.h"
 
 class ActionsFactory {
  public:

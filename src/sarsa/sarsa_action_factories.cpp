@@ -14,31 +14,6 @@
 
 namespace cvc::sarsa {
 
-double* StandardFeatures(CVC* cvc, Character* character,
-                      double* features) {
-  features[0] = 1.0; //bias
-  features[1] = 0.0;//character->GetMoney();//log(character->GetMoney());
-  features[2] = 0.0;//log(cvc->GetMoneyStats().mean_);
-  features[3] = 0.0;//cvc->GetOpinionStats().mean_/100.0;
-  features[4] = 0.0;//cvc->GetOpinionByStats(character->GetId()).mean_/100.0;
-  features[5] = 0.0;//cvc->GetOpinionOfStats(character->GetId()).mean_/100.0;
-
-  return features;
-}
-
-double* TargetFeatures(CVC* cvc, Character* character,
-                                   Character* target,
-                                   double* features) {
-  StandardFeatures(cvc, character, features);
-  features[6] = 0.0;//character->GetOpinionOf(target) / 100.0;
-  features[7] = 0.0;//target->GetOpinionOf(character) / 100.0;
-  features[8] = 0.0;//target->GetMoney();//log(target->GetMoney());
-  //TODO: this should be relationship between character and target money
-  features[9] = 0.0;
-
-  return features;
-}
-
 std::unique_ptr<Experience> EpsilonGreedyPolicy::ChooseAction(
     std::vector<std::unique_ptr<Experience>>* actions, CVC* cvc,
     Character* character) {

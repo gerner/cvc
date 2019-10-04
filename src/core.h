@@ -83,7 +83,7 @@ class CVC {
   const Stats& GetMoneyStats();
 
   // gets the current clock tick
-  int Now() {
+  int Now() const {
     return ticks_;
   }
 

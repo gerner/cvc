@@ -7,6 +7,8 @@
 #include <memory>
 #include <set>
 #include <cassert>
+#include <array>
+#include <limits>
 
 #include "../decision_engine.h"
 #include "sarsa_agent.h"
@@ -14,10 +16,32 @@
 
 namespace cvc::sarsa {
 
-double* StandardFeatures(CVC* cvc, Character* character, double* features);
+template <size_t N>
+std::array<double, N> StandardFeatures(CVC* cvc, Character* character,
+                                       std::array<double, N> features) {
+  features[0] = 1.0; //bias
+  features[1] = 0.0;//character->GetMoney();//log(character->GetMoney());
+  features[2] = 0.0;//log(cvc->GetMoneyStats().mean_);
+  features[3] = 0.0;//cvc->GetOpinionStats().mean_/100.0;
+  features[4] = 0.0;//cvc->GetOpinionByStats(character->GetId()).mean_/100.0;
+  features[5] = 0.0;//cvc->GetOpinionOfStats(character->GetId()).mean_/100.0;
 
-double* TargetFeatures(CVC* cvc, Character* character, Character* target,
-                       double* features);
+  return features;
+}
+
+template <size_t N>
+std::array<double, N> TargetFeatures(CVC* cvc, Character* character,
+                                     Character* target,
+                                     std::array<double, N> features) {
+  StandardFeatures(cvc, character, features);
+  features[6] = 0.0;//character->GetOpinionOf(target) / 100.0;
+  features[7] = 0.0;//target->GetOpinionOf(character) / 100.0;
+  features[8] = 0.0;//target->GetMoney();//log(target->GetMoney());
+  //TODO: this should be relationship between character and target money
+  features[9] = 0.0;
+
+  return features;
+}
 
 class SARSAGiveActionFactory : public SARSAActionFactory<10> {
  public:
@@ -28,24 +52,32 @@ class SARSAGiveActionFactory : public SARSAActionFactory<10> {
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Experience>>* actions) override {
 
+    double best_score = std::numeric_limits<double>::lowest();
+    std::unique_ptr<Experience> best_action = nullptr;
+
     if (character->GetMoney() > 10.0) {
       //choose a single target to potentially give to
-      double sum_score = 0.0;
       for (Character* target : cvc->GetCharacters()) {
         if(target == character) {
           continue;
         }
-        double features[10];
+        std::array<double, 10> features;
 
-        //add this as an action choice
-        actions->push_back(
-            learner_.WrapAction(TargetFeatures(cvc, character, target, features),
-                                 std::make_unique<GiveAction>(
-                                     character, 0.0, target, 10.0)));
-        sum_score += actions->back()->action_->GetScore();
+        std::unique_ptr<Experience> action = learner_.WrapAction(
+            TargetFeatures(cvc, character, target, features),
+            std::make_unique<GiveAction>(character, 0.0, target, 10.0));
 
+        if(action->action_->GetScore() > best_score) {
+          best_action = std::move(action);
+          best_score = best_action->action_->GetScore();
+        }
       }
-      return sum_score;
+      if(best_action) {
+        actions->push_back(std::move(best_action));
+        return actions->back()->action_->GetScore();
+      } else {
+        return 0.0;
+      }
     }
     return 0.0;
   }
@@ -59,7 +91,8 @@ class SARSAAskActionFactory : public SARSAActionFactory<10> {
   double EnumerateActions(
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Experience>>* actions) {
-    double sum_score = 0.0;
+    double best_score = std::numeric_limits<double>::lowest();
+    std::unique_ptr<Experience> best_action = nullptr;
     for (Character* target : cvc->GetCharacters()) {
       // skip self
       if (character == target) {
@@ -69,14 +102,23 @@ class SARSAAskActionFactory : public SARSAActionFactory<10> {
       if (target->GetMoney() <= 10.0) {
         continue;
       }
-      double features[10];
+      std::array<double, 10> features;
       //add this as an option to ask
-      actions->push_back(learner_.WrapAction(
+      std::unique_ptr<Experience> action = learner_.WrapAction(
           TargetFeatures(cvc, character, target, features),
-          std::make_unique<AskAction>(character, 0.0, target, 10.0)));
-      sum_score += actions->back()->action_->GetScore();
+          std::make_unique<AskAction>(character, 0.0, target, 10.0));
+      if(action->action_->GetScore() > best_score) {
+        best_action = std::move(action);
+        best_score = best_action->action_->GetScore();
+      }
     }
-    return sum_score;
+
+    if(best_action) {
+      actions->push_back(std::move(best_action));
+      return actions->back()->action_->GetScore();
+    } else {
+      return 0.0;
+    }
   }
 };
 
@@ -95,7 +137,7 @@ class SARSAAskSuccessResponseFactory : public SARSAResponseFactory<10> {
       return 0.0;
     }
 
-    double features[10];
+    std::array<double, 10> features;
     actions->push_back(learner_.WrapAction(
         TargetFeatures(cvc, character, ask_action->GetTarget(), features),
         std::make_unique<AskSuccessAction>(character, 0.0, ask_action->GetActor(),
@@ -115,7 +157,7 @@ class SARSAAskFailureResponseFactory : public SARSAResponseFactory<10> {
     //action->GetTarget() is asking us for action->GetRequestAmount() money
     AskAction* ask_action = (AskAction*)action;
 
-    double features[10];
+    std::array<double, 10> features;
     actions->push_back(learner_.WrapAction(
         TargetFeatures(cvc, character, ask_action->GetTarget(), features),
         std::make_unique<TrivialResponse>(character, 0.0)));
@@ -131,7 +173,7 @@ class SARSAWorkActionFactory : public SARSAActionFactory<6> {
   double EnumerateActions(
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Experience>>* actions) override {
-    double features[10];
+    std::array<double, 6> features;
     actions->push_back(
         learner_.WrapAction(StandardFeatures(cvc, character, features),
                              std::make_unique<WorkAction>(character, 0.0)));
@@ -147,7 +189,7 @@ class SARSATrivialActionFactory : public SARSAActionFactory<6> {
   double EnumerateActions(
       CVC* cvc, Character* character,
       std::vector<std::unique_ptr<Experience>>* actions) override {
-    double features[6];
+    std::array<double, 6> features;
     StandardFeatures(cvc, character, features);
     actions->push_back(learner_.WrapAction(features,
         std::make_unique<TrivialAction>(character, 0.0)));
@@ -157,6 +199,8 @@ class SARSATrivialActionFactory : public SARSAActionFactory<6> {
 
 class EpsilonGreedyPolicy : public SARSAActionPolicy {
  public:
+  EpsilonGreedyPolicy() {}
+
   EpsilonGreedyPolicy(double epsilon, Logger* logger)
       : epsilon_(epsilon), logger_(logger){};
 
@@ -171,6 +215,8 @@ class EpsilonGreedyPolicy : public SARSAActionPolicy {
 
 class DecayingEpsilonGreedyPolicy : public EpsilonGreedyPolicy {
  public:
+  DecayingEpsilonGreedyPolicy() {}
+
   DecayingEpsilonGreedyPolicy(double initial_epsilon, double scale,
                               Logger* logger)
       : EpsilonGreedyPolicy(initial_epsilon, logger),

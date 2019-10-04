@@ -48,7 +48,7 @@ TEST_F(SarsaAgentTest, TestExperienceRewards) {
   // set up sequence of experiences and make sure the discounted rewards and
   // future score estimate are computed properly
 
-  double zero_array[1] = {0.0};
+  std::array<double, 1> zero_array = {0.0};
   cvc::sarsa::ExperienceImpl<1> e4(
       std::make_unique<RecordingTestActionSAT>(nullptr, nullptr), 10.0, nullptr,
       zero_array, learner_.get());
@@ -75,7 +75,7 @@ TEST_F(SarsaAgentTest, TestExperienceRewards) {
 TEST_F(SarsaAgentTest, TestLearningMonotonic) {
   // test that learning gets better (which it will in a very simple linear case)
   CVC cvc;
-  double one_array[1] = {1.0};
+  std::array<double, 1> one_array = {1.0};
   cvc::sarsa::ExperienceImpl<1> e2(
       std::make_unique<RecordingTestActionSAT>(nullptr, nullptr), 10.0, nullptr,
       one_array, learner_.get());

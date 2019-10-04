@@ -44,6 +44,8 @@ class DecisionEngine {
   static std::unique_ptr<DecisionEngine> Create(std::vector<Agent*> agents,
                                                 CVC* cvc, Logger* action_log);
 
+  DecisionEngine() {}
+
   DecisionEngine(std::vector<Agent*> agents, CVC* cvc,
                  Logger* action_log);
 
@@ -64,7 +66,7 @@ class DecisionEngine {
   void LogInvalidAction(const Action* action);
   void LogAction(const Action* action);
 
-  const std::vector<Agent*> agents_;
+  std::vector<Agent*> agents_;
   CVC* cvc_;
   Logger* action_log_;
 

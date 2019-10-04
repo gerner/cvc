@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "../core.h"
+#include "../action.h"
 
 namespace cvc::crunchedin {
 
@@ -54,8 +55,8 @@ class CurriculumVitae {
  public:
   double TotalContribution() const {
     double score = 0.0;
-    for(const Role& role: roles_) {
-      score += role.contribution_;
+    for(auto& role: roles_) {
+      score += role->contribution_;
     }
     return score;
   }
@@ -84,8 +85,13 @@ class CurriculumVitae {
   std::array<double, CULTURE_DIMENSIONS> GetCulture() const {
     return culture_;
   }
+
+  Role* GetCurrentRole() const {
+    return roles_.back().get();
+  }
+
  private:
-  std::vector<Role> roles_;
+  std::vector<std::unique_ptr<Role>> roles_;
   std::array<double, CULTURE_DIMENSIONS> culture_;
 };
 
@@ -97,7 +103,16 @@ struct CrunchedIn {
 
 class WorkAction : public Action {
  public:
-  bool IsValid(const CVC* cvc) override { return true; }
+  WorkAction(Character* character, double score, Role* role,
+             double contribution)
+      : Action(__FUNCTION__, character, score),
+        role_(role),
+        contribution_(contribution) {}
+
+  bool IsValid(const CVC* cvc) override {
+    //make sure we're still employed
+    return cvc->Now() > role_->end_tick_;
+  }
 
   void TakeEffect(CVC* gamestate) override {
     role_->cv_->Contribute(role_, contribution_);
@@ -108,9 +123,21 @@ class WorkAction : public Action {
   double contribution_;
 };
 
+class ContributionScorer {
+ public:
+  double Score(CVC* cvc, Character* character) {
+    CurriculumVitae* cv = crunchedin_->cv_lookup_[character];
+    assert(cv);
+    return cv->TotalContribution();
+  }
+
+ private:
+  CrunchedIn* crunchedin_;
+};
+
 /*class ApplyAction : public Action {
  public:
-  AskAction(Character* actor, double score, Character* target, Role* role)
+  ApplyAction(Character* actor, double score, Character* target, Role* role)
       : Action(__FUNCTION__, actor, target, score),
 
         bool IsValid(const CVC* cvc) override {

@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cmath>
 #include <memory>
+#include <array>
 
 #include "../util.h"
 #include "../core.h"
@@ -19,7 +20,7 @@ template <size_t N>
 class ExperienceImpl : public Experience {
  public:
   ExperienceImpl(std::unique_ptr<Action> action, double score,
-                 Experience* next_experience, double features[N],
+                 Experience* next_experience, std::array<double, N> features,
                  SARSALearner<N>* learner)
       : Experience(std::move(action), score, next_experience),
         learner_(learner) {
@@ -28,7 +29,7 @@ class ExperienceImpl : public Experience {
           }
         }
 
-  double features_[N];
+  std::array<double, N> features_;
   SARSALearner<N>* learner_;
 
   double Learn(CVC* cvc) override {
@@ -99,10 +100,10 @@ class SARSALearner {
                                               double g, double b1, double b2,
                                               std::mt19937& random_generator,
                                               Logger* learn_logger) {
-    double weights[N];
-    Stats stats[N];
-    double m[N];
-    double r[N];
+    std::array<double, N> weights;
+    std::array<Stats, N> stats;
+    std::array<double, N> m;
+    std::array<double, N> r;
 
     std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
     for (size_t i = 0; i < N; i++) {
@@ -117,15 +118,15 @@ class SARSALearner {
   }
 
   SARSALearner(int learner_id, double n, double g, double b1, double b2,
-               double weights[N], Stats s[N],
-               double m[N],  double r[N],
+               std::array<double, N> weights, std::array<Stats, N> s,
+               std::array<double, N> m, std::array<double, N> r,
                Logger* learn_logger)
-    : learner_id_(learner_id),
-      n_(n),
-      g_(g),
-      b1_(b1),
-      b2_(b2),
-      learn_logger_(learn_logger) {
+      : learner_id_(learner_id),
+        n_(n),
+        g_(g),
+        b1_(b1),
+        b2_(b2),
+        learn_logger_(learn_logger) {
     for(size_t i=0; i<N; i++) {
       weights_[i] = weights[i];
       feature_stats_[i] = s[i];
@@ -261,7 +262,7 @@ class SARSALearner {
     }
   }
 
-  double Score(const double features[N]) const {
+  double Score(const std::array<double, N> features) const {
     //first feature had beter be bias term
     double score = 0.0;
     for(size_t i = 0; i < N; i++) {
@@ -291,7 +292,7 @@ class SARSALearner {
     return discounted_rewards + pow(g_, i) * e->PredictScore();
   }
 
-  std::unique_ptr<Experience> WrapAction(double features[N],
+  std::unique_ptr<Experience> WrapAction(std::array<double, N> features,
                                          std::unique_ptr<Action> action) {
     action->SetScore(Score(features));
     return std::make_unique<ExperienceImpl<N>>(std::move(action), 0.0, nullptr,
@@ -303,9 +304,9 @@ class SARSALearner {
 
   double n_; //learning rate
   double g_; //discount factor
-  double weights_[N];
+  std::array<double, N> weights_;
 
-  Stats feature_stats_[N];
+  std::array<Stats, N> feature_stats_;
 
   //adam optimizer params and state
   double b1_;
@@ -315,8 +316,8 @@ class SARSALearner {
   //TODO: setting learning epoch always to 0 means we can't load state
   //so this would need to get serialized out
   int t_=0;
-  double m_[N];
-  double r_[N];
+  std::array<double, N> m_;
+  std::array<double, N> r_;
 
   Logger* learn_logger_;
 };
@@ -329,10 +330,10 @@ class SARSAActionFactory : public ActionFactory {
                                        double b1, double b2,
                                        std::mt19937* random_generator,
                                        Logger* learn_logger) {
-    double weights[N];
-    Stats stats[N];
-    double m[N];
-    double r[N];
+    std::array<double, N> weights;
+    std::array<Stats, N> stats;
+    std::array<double, N> m;
+    std::array<double, N> r;
 
     std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
     for (size_t i = 0; i < N; i++) {
@@ -366,10 +367,10 @@ class SARSAResponseFactory : public ResponseFactory {
                                        double b1, double b2,
                                        std::mt19937* random_generator,
                                        Logger* learn_logger) {
-    double weights[N];
-    Stats stats[N];
-    double m[N];
-    double r[N];
+    std::array<double, N> weights;
+    std::array<Stats, N> stats;
+    std::array<double, N> m;
+    std::array<double, N> r;
 
     std::uniform_real_distribution<> weight_dist(-1.0, 1.0);
     for (size_t i = 0; i < N; i++) {

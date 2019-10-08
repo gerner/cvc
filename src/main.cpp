@@ -4,149 +4,315 @@
 #include <vector>
 #include <unordered_map>
 #include <deque>
+#include <chrono>
 
 #include "core.h"
 #include "decision_engine.h"
 #include "action_factories.h"
-#include "sarsa_agent.h"
-#include "sarsa_action_factories.h"
+#include "sarsa/sarsa_agent.h"
+#include "sarsa/sarsa_learner.h"
+#include "sarsa/sarsa_action_factories.h"
+#include "crunchedin/crunchedin.h"
+#include "crunchedin/crunchedin_action_factories.h"
+
+class ActionsFactory {
+ public:
+  ActionsFactory() {}
+
+  ActionsFactory(double n, double g, double b1, double b2,
+                 std::mt19937* random_generator, Logger* learn_logger)
+      : n_(n),
+        g_(g),
+        b1_(b1),
+        b2_(b2),
+        random_generator_(random_generator),
+        learn_logger_(learn_logger) {}
+
+  template <class AF>
+  AF CreateFactory() {
+    return AF(AF::CreateLearner(num_learners_++, n_, g_, b1_, b2_,
+                                random_generator_, learn_logger_));
+  }
+
+  template <class AF, class B, typename... Args>
+  std::unique_ptr<B> CreateFactoryPtr(Args&&... args) {
+    return std::make_unique<AF>(
+        AF::CreateLearner(num_learners_++, n_, g_, b1_, b2_, random_generator_,
+                          learn_logger_),
+        std::forward<Args>(args)...);
+  }
+ private:
+  int num_learners_ = 0;
+  double n_;
+  double g_;
+  double b1_;
+  double b2_;
+  std::mt19937* random_generator_;
+  Logger* learn_logger_;
+};
+
+class CVCSetup {
+ public:
+  CVCSetup()
+      : random_generator_(rd_()),
+        money_dist_(10.0, 25.0),
+        background_dist_(0, 10),
+        language_dist_(0, 5),
+        cf_({{"WorkAction", &waf_},
+             {"GiveAction", &gaf_},
+             {"AskAction", &aaf_},
+             {"TrivialAction", &taf_}}),
+       contribution_scorer_(&crunchedin_) {
+
+    learn_log_ = fopen("/tmp/learn_log", "a");
+    setvbuf(learn_log_, NULL, _IOLBF, 1024*10);
+    learn_logger_ = Logger("learner", learn_log_, INFO);
+
+    policy_log_ = fopen("/tmp/policy_log", "a");
+    setvbuf(policy_log_, NULL, _IOLBF, 1024*10);
+    policy_logger_ = Logger("policy", policy_log_, WARN);
+
+    action_log_ = fopen("/tmp/action_log", "a");
+    setvbuf(action_log_, NULL, _IOLBF, 1024*10);
+    action_logger_ = Logger("action", action_log_, INFO);
+
+    f_ = ActionsFactory(n_, g_, b1_, b2_, &random_generator_, &learn_logger_);
+
+    sarsa_action_factories_.push_back(
+        f_.CreateFactoryPtr<cvc::sarsa::SARSAGiveActionFactory,
+                            cvc::sarsa::ActionFactory>());
+    sarsa_action_factories_.push_back(
+        f_.CreateFactoryPtr<cvc::sarsa::SARSAAskActionFactory,
+                            cvc::sarsa::ActionFactory>());
+    sarsa_action_factories_.push_back(
+        f_.CreateFactoryPtr<cvc::sarsa::SARSATrivialActionFactory,
+                            cvc::sarsa::ActionFactory>());
+    sarsa_action_factories_.push_back(
+        f_.CreateFactoryPtr<cvc::sarsa::SARSAWorkActionFactory,
+                            cvc::sarsa::ActionFactory>());
+    sarsa_action_factories_.push_back(
+        f_.CreateFactoryPtr<cvc::crunchedin::WorkActionFactory,
+                            cvc::sarsa::ActionFactory>(&crunchedin_));
+
+    sarsa_response_factories_.push_back(
+        f_.CreateFactoryPtr<cvc::sarsa::SARSAAskSuccessResponseFactory,
+                            cvc::sarsa::ResponseFactory>());
+    sarsa_response_factories_.push_back(
+        f_.CreateFactoryPtr<cvc::sarsa::SARSAAskFailureResponseFactory,
+                            cvc::sarsa::ResponseFactory>());
+
+    sarsa_response_map_ =
+        std::unordered_map<std::string, std::set<cvc::sarsa::ResponseFactory*>>(
+            {{"AskAction",
+              {sarsa_response_factories_[0].get(),
+               sarsa_response_factories_[1].get()}}});
+
+    learning_policy_ = cvc::sarsa::DecayingEpsilonGreedyPolicy(
+      policy_greedy_initial_e_, policy_greedy_scale_, &policy_logger_);
+  }
+
+  ~CVCSetup() {
+    fclose(action_log_);
+    fclose(learn_log_);
+    fclose(policy_log_);
+  }
+
+  void SetupCrunchedIn() {
+    crunchedin_.orgs_.emplace_back(
+        std::make_unique<cvc::crunchedin::Organization>(GenCulture()));
+  }
+
+  void AddHeuristicAgents(size_t num_heuristic_agents) {
+
+    size_t num_characters = c_.size();
+    for (size_t i = 0; i < num_heuristic_agents; i++) {
+      c_.push_back(std::make_unique<Character>(num_characters + i,
+                                              money_dist_(random_generator_)));
+      a_.push_back(
+          std::make_unique<HeuristicAgent>(c_.back().get(), &cf_, &rf_, &pdp_));
+    }
+  }
+
+  void AddLearningAgents(size_t num_learning_agents) {
+
+    std::vector<cvc::sarsa::ActionFactory*> action_factories;
+    for(auto& factory : sarsa_action_factories_) {
+      action_factories.push_back(factory.get());
+    }
+
+    size_t num_characters = c_.size();
+    for (size_t i = 0; i < num_learning_agents; i++) {
+      Character* c = c_.emplace_back(std::make_unique<Character>(
+                                         i + num_characters,
+                                         money_dist_(random_generator_)))
+                         .get();
+      a_.push_back(std::make_unique<
+                   cvc::sarsa::SARSAAgent<cvc::crunchedin::ContributionScorer>>(
+          &contribution_scorer_, c, action_factories, sarsa_response_map_,
+          &learning_policy_, n_steps_));
+
+      //TODO: crunchedin setup
+
+      cvc::crunchedin::CurriculumVitae* cv =
+          crunchedin_.cvs_
+              .emplace_back(std::make_unique<cvc::crunchedin::CurriculumVitae>(
+                  GenCulture()))
+              .get();
+      crunchedin_.cv_lookup_[c] = cv;
+
+      cvc::crunchedin::Role* role =
+          cv->roles_.emplace_back(std::make_unique<cvc::crunchedin::Role>(
+              crunchedin_.orgs_.back().get(), cv, 0)).get();
+
+      double scale = 0.0;
+      for (size_t i = 0; i < cvc::crunchedin::CULTURE_DIMENSIONS; i++) {
+        scale += cv->culture_[i] * role->org_->culture_[i];
+      }
+      logger_.Log(INFO, "%d has theoretical max\t%f\t(%f)\n", c->GetId(),
+                  scale * 2.0 * 10000.0, scale);
+    }
+  }
+
+  void SetupEnvironment() {
+    std::vector<Character*> characters;
+    for(auto& character : c_) {
+      characters.push_back(character.get());
+    }
+
+    std::vector<Agent*> agents;
+    for(auto& agent : a_) {
+      agents.push_back(agent.get());
+    }
+
+    cvc_ = CVC(characters, &logger_, random_generator_);
+    d_ = DecisionEngine(agents, &cvc_, &action_logger_);
+  }
+
+  CVC* GetCVC() {
+    return &cvc_;
+  }
+
+  DecisionEngine* GetDecisionEngine() {
+    return &d_;
+  }
+
+ private:
+
+  std::array<double, cvc::crunchedin::CULTURE_DIMENSIONS> GenCulture() {
+    std::uniform_real_distribution<> dist(-1.0, 1.0);
+    std::array<double, cvc::crunchedin::CULTURE_DIMENSIONS> culture;
+
+    double magnitude = 0.0;
+    for(size_t i=0; i<cvc::crunchedin::CULTURE_DIMENSIONS; i++) {
+      culture[i] = dist(random_generator_);
+      magnitude += culture[i] * culture[i];
+    }
+    magnitude = sqrt(magnitude);
+
+    //normalize to unit vector
+    for(size_t i=0; i<cvc::crunchedin::CULTURE_DIMENSIONS; i++) {
+      culture[i] /= magnitude;
+    }
+
+    return culture;
+  }
+
+  std::random_device rd_;
+  std::mt19937 random_generator_;
+
+  std::uniform_real_distribution<> money_dist_;
+  std::uniform_int_distribution<> background_dist_;
+  std::uniform_int_distribution<> language_dist_;
+
+  std::vector<std::unique_ptr<Character>> c_;
+  std::vector<std::unique_ptr<Agent>> a_;
+
+  CVC cvc_;
+  DecisionEngine d_;
+
+  Logger logger_;
+  FILE* action_log_;
+  Logger action_logger_;
+  FILE* learn_log_;
+  Logger learn_logger_;
+  FILE* policy_log_;
+  Logger policy_logger_;
+
+  //heuristic agent state
+  GiveActionFactory gaf_;
+  AskActionFactory aaf_;
+  WorkActionFactory waf_;
+  TrivialActionFactory taf_;
+  CompositeActionFactory cf_;
+  AskResponseFactory rf_;
+  ProbDistPolicy pdp_;
+
+  //learning agent state
+  //double policy_greedy_e = 0.05;
+  double policy_greedy_initial_e_ = 0.5;
+  double policy_greedy_scale_ = 0.1;
+  //double policy_temperature_ = 0.2;
+  //double policy_initial_temperature_ = 50.0;
+  //double policy_decay_ = 0.001;
+  //double policy_scale_ = 0.001;
+  double n_ = 0.001;
+  double b1_ = 0.9;
+  double b2_= 0.999;
+  double g_= 0.9;
+  int n_steps_ = 100;
+
+  ActionsFactory f_;
+
+  std::vector<std::unique_ptr<cvc::sarsa::ActionFactory>>
+      sarsa_action_factories_;
+  std::vector<std::unique_ptr<cvc::sarsa::ResponseFactory>>
+      sarsa_response_factories_;
+  std::unordered_map<std::string, std::set<cvc::sarsa::ResponseFactory*>>
+      sarsa_response_map_;
+
+  cvc::sarsa::DecayingEpsilonGreedyPolicy learning_policy_;
+
+  cvc::sarsa::MoneyScorer money_scorer_;
+  cvc::crunchedin::ContributionScorer contribution_scorer_;
+
+  cvc::crunchedin::CrunchedIn crunchedin_;
+};
 
 int main(int argc, char** argv) {
   Logger logger;
-  logger.Log(INFO, "Setting up Characters\n");
+  logger.Log(INFO, "setting up Characters\n");
 
-  std::random_device rd;
-  std::mt19937 random_generator(rd());
+  int num_heuristic_agents = 0;
+  int num_learning_agents = 25;
+  CVCSetup setup;
+  setup.SetupCrunchedIn();
+  setup.AddHeuristicAgents(num_heuristic_agents);
+  setup.AddLearningAgents(num_learning_agents);
+  setup.SetupEnvironment();
 
-  std::vector<std::unique_ptr<Character>> c;
-  std::vector<Character*> characters;
-  std::uniform_real_distribution<> money_dist(10.0, 25.0);
-  std::uniform_int_distribution<> background_dist(0, 10);
-  std::uniform_int_distribution<> language_dist(0, 5);
+  CVC* cvc = setup.GetCVC();
+  DecisionEngine* d = setup.GetDecisionEngine();
 
-  std::vector<std::unique_ptr<Agent>> a;
-  std::vector<Agent*> agents;
-
-  //heuristic agents
-  GiveActionFactory gaf;
-  AskActionFactory aaf;
-  WorkActionFactory waf;
-  TrivialActionFactory taf;
-  CompositeActionFactory cf({
-                             {"WorkAction", &waf},
-                             {"GiveAction", &gaf},
-                             {"AskAction", &aaf},
-                             {"TrivialAction", &taf}});
-  AskResponseFactory rf;
-
-  ProbDistPolicy pdp;
-
-  int num_heuristic_agents = 5;
-
-  for (int i = 0; i < num_heuristic_agents; i++) {
-    c.push_back(std::make_unique<Character>(i, money_dist(random_generator)));
-    characters.push_back(c.back().get());
-    characters.back()->traits_[kBackground] = background_dist(random_generator);
-    characters.back()->traits_[kLanguage] = language_dist(random_generator);
-
-    a.push_back(
-        std::make_unique<HeuristicAgent>(characters.back(), &cf, &rf, &pdp));
-    agents.push_back(a.back().get());
-  }
-
-  double e = 0.05;
-  double n = 0.001;
-  double b1 = 0.9;
-  double b2 = 0.999;
-  double g = 0.8;
-  int n_steps = 100;
-  int num_learning_agents = 5;
-
-  //learning agents
-  FILE* learn_log = fopen("/tmp/learn_log", "a");
-  setvbuf(learn_log, NULL, _IOLBF, 1024*10);
-  Logger give_learn_logger("learn_give", learn_log, WARN);
-  Logger ask_learn_logger("learn_ask", learn_log, WARN);
-  Logger ask_success_learn_logger("learn_ask_success", learn_log, WARN);
-  Logger ask_failure_learn_logger("learn_ask_failure", learn_log, WARN);
-  Logger trivial_learn_logger("learn_trivial", learn_log, WARN);
-  Logger work_learn_logger("learn_work", learn_log, WARN);
-
-  FILE* policy_log = fopen("/tmp/policy_log", "a");
-  setvbuf(policy_log, NULL, _IOLBF, 1024*10);
-  Logger policy_logger("policy", policy_log, WARN);
-
-  std::unique_ptr<SARSAGiveActionFactory> sgaf =
-      SARSAGiveActionFactory::Create(SARSALearner::Create(
-          n, g, b1, b2, random_generator, 10, &give_learn_logger));
-  std::unique_ptr<SARSAAskActionFactory> saaf =
-      SARSAAskActionFactory::Create(SARSALearner::Create(
-          n, g, b1, b2, random_generator, 10, &ask_learn_logger));
-  std::unique_ptr<SARSATrivialActionFactory> staf =
-      SARSATrivialActionFactory::Create(SARSALearner::Create(
-          n, g, b1, b2, random_generator, 6, &trivial_learn_logger));
-  std::unique_ptr<SARSAWorkActionFactory> swaf =
-      SARSAWorkActionFactory::Create(SARSALearner::Create(
-          n, g, b1, b2, random_generator, 6, &work_learn_logger));
-
-  std::vector<SARSAActionFactory*> sarsa_action_factories({
-      sgaf.get(), saaf.get(), swaf.get(), staf.get()});
-  /*std::vector<SARSAActionFactory*> sarsa_action_factories({
-      staf.get(), swaf.get()});*/
-
-  std::unique_ptr<SARSAAskSuccessResponseFactory> asrf =
-      SARSAAskSuccessResponseFactory::Create(SARSALearner::Create(
-          n, g, b1, b2, random_generator, 10, &ask_success_learn_logger));
-  std::unique_ptr<SARSAAskFailureResponseFactory> afrf =
-      SARSAAskFailureResponseFactory::Create(SARSALearner::Create(
-          n, g, b1, b2, random_generator, 10, &ask_failure_learn_logger));
-
-  std::unordered_map<std::string, std::set<SARSAResponseFactory*>>
-      sarsa_response_factories({{"AskAction", {asrf.get(), afrf.get()}}});
-
-  //scf.ReadWeights();
-  EpsilonGreedyPolicy egp(e, &policy_logger);
-  int num_non_learning_agents = agents.size();
-  for (int i = 0; i < num_learning_agents; i++) {
-    c.push_back(std::make_unique<Character>(i + num_non_learning_agents,
-                                            money_dist(random_generator)));
-    characters.push_back(c.back().get());
-    characters.back()->traits_[kBackground] = background_dist(random_generator);
-    characters.back()->traits_[kLanguage] = language_dist(random_generator);
-
-    a.push_back(
-        std::make_unique<SARSAAgent>(characters.back(), sarsa_action_factories,
-                                     sarsa_response_factories, &egp, n_steps));
-    agents.push_back(a.back().get());
-  }
-
-  FILE* action_log = fopen("/tmp/action_log", "a");
-  setvbuf(action_log, NULL, _IOLBF, 1024*10);
-  Logger action_logger = Logger("action", action_log, WARN);
-  action_logger.SetLogLevel(WARN);
-  logger.Log(INFO, "creating CVC\n");
-  CVC cvc(characters, &logger, random_generator);
-
-  std::unique_ptr<DecisionEngine> d =
-      DecisionEngine::Create(agents, &cvc, &action_logger);
+  //run the simulation
 
   logger.Log(INFO, "running the game loop\n");
+  auto start_tick = std::chrono::high_resolution_clock::now();
 
-  cvc.LogState();
-  for (; cvc.Now() < 100000;) {
+  cvc->LogState();
+  int num_ticks = 10000;
+  for (; cvc->Now() < num_ticks;) {
     d->RunOneGameLoop();
 
-    if(cvc.Now() % 10000 == 0) {
-      cvc.LogState();
+    if(cvc->Now() % 10000 == 0) {
+      cvc->LogState();
     }
   }
-  cvc.LogState();
+  cvc->LogState();
 
-  //scf.WriteWeights();
+  auto end_tick = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> loop_duration = end_tick - start_tick;
 
-  fclose(action_log);
-  fclose(learn_log);
-  fclose(policy_log);
+  logger.Log(INFO, "ran in %f seconds (%f ticks/sec)\n", loop_duration.count(), ((double)num_ticks)/loop_duration.count());
 
   return 0;
 }

@@ -4,21 +4,12 @@
 #include "action.h"
 #include "core.h"
 
-Action::Action(const char* action_id, Character* actor, double score,
-               std::vector<double> features)
-    : action_id_(action_id),
-      actor_(actor),
-      target_(NULL),
-      score_(score),
-      feature_vector_(features) {}
+Action::Action(const char* action_id, Character* actor, double score)
+    : action_id_(action_id), actor_(actor), target_(NULL), score_(score) {}
 
 Action::Action(const char* action_id, Character* actor, Character* target,
-               double score, std::vector<double> features)
-    : action_id_(action_id),
-      actor_(actor),
-      target_(target),
-      score_(score),
-      feature_vector_(features) {}
+               double score)
+    : action_id_(action_id), actor_(actor), target_(target), score_(score) {}
 
 Action::~Action() {}
 
@@ -26,32 +17,27 @@ bool Action::RequiresResponse() {
   return false;
 }
 
-TrivialAction::TrivialAction(Character* actor, double score,
-                             std::vector<double> features)
-    : Action(__FUNCTION__, actor, score, features) {}
+TrivialAction::TrivialAction(Character* actor, double score)
+    : Action(__FUNCTION__, actor, score) {}
 
 bool TrivialAction::IsValid(const CVC* gamestate) { return true; }
 
 void TrivialAction::TakeEffect(CVC* gamestate) {
-  SetReward(0.0);
   gamestate->GetLogger()->Log(DEBUG, "trivial by %d\n", GetActor()->GetId());
 }
 
-TrivialResponse::TrivialResponse(Character* actor, double score,
-                             std::vector<double> features)
-    : Action(__FUNCTION__, actor, score, features) {}
+TrivialResponse::TrivialResponse(Character* actor, double score)
+    : Action(__FUNCTION__, actor, score) {}
 
 bool TrivialResponse::IsValid(const CVC* gamestate) { return true; }
 
 void TrivialResponse::TakeEffect(CVC* gamestate) {
-  SetReward(0.0);
   gamestate->GetLogger()->Log(DEBUG, "trivial response by %d\n",
                               GetActor()->GetId());
 }
 
-WorkAction::WorkAction(Character* actor, double score,
-                             std::vector<double> features)
-    : Action(__FUNCTION__, actor, score, features) {}
+WorkAction::WorkAction(Character* actor, double score)
+    : Action(__FUNCTION__, actor, score) {}
 
 bool WorkAction::IsValid(const CVC* gamestate) { 
   return true;
@@ -68,17 +54,14 @@ bool WorkAction::IsValid(const CVC* gamestate) {
 }
 
 void WorkAction::TakeEffect(CVC* gamestate) {
-  SetReward(1.0);
   GetActor()->SetMoney(GetActor()->GetMoney() + 1.0);
 }
 
-AskAction::AskAction(Character* actor, double score,
-                     std::vector<double> features, Character* target,
+AskAction::AskAction(Character* actor, double score, Character* target,
                      double request_amount)
-    : Action(__FUNCTION__, actor, target, score, features),
+    : Action(__FUNCTION__, actor, target, score),
       request_amount_(request_amount) {
   //until we get a positive response, reward is zero
-  SetReward(0);
 }
 
 bool AskAction::IsValid(const CVC* gamestate) {
@@ -136,9 +119,8 @@ void AskAction::TakeEffect(CVC* gamestate) {
 }
 
 AskSuccessAction::AskSuccessAction(Character* actor, double score,
-                                   std::vector<double> features,
                                    Character* target, AskAction* source_action)
-    : Action(__FUNCTION__, actor, target, score, features),
+    : Action(__FUNCTION__, actor, target, score),
       source_action_(source_action) {}
 
 bool AskSuccessAction::IsValid(const CVC* gamestate) {
@@ -159,9 +141,6 @@ void AskSuccessAction::TakeEffect(CVC* gamestate) {
   GetActor()->AddRelationship(std::make_unique<RelationshipModifier>(
       GetTarget(), gamestate->Now(), gamestate->Now() + 10,
       -1.0 * request_amount));
-
-  SetReward(-request_amount);
-  source_action_->SetReward(request_amount);
 }
 
 bool StealAction::IsValid(const CVC* gamestate) {
@@ -180,10 +159,9 @@ void StealAction::TakeEffect(CVC* gamestate) {
   // decrease opinion of actor by  a little bit (tried to get money stolen)
 }
 
-GiveAction::GiveAction(Character* actor, double score,
-                       std::vector<double> features, Character* target,
+GiveAction::GiveAction(Character* actor, double score, Character* target,
                        double gift_amount)
-    : Action(__FUNCTION__, actor, target, score, features),
+    : Action(__FUNCTION__, actor, target, score),
       gift_amount_(gift_amount) {}
 
 bool GiveAction::IsValid(const CVC* gamestate) {
@@ -201,7 +179,6 @@ void GiveAction::TakeEffect(CVC* gamestate) {
   this->GetTarget()->AddRelationship(std::make_unique<RelationshipModifier>(
       this->GetActor(), gamestate->Now(), gamestate->Now() + 200, opinion_buff));
 
-  SetReward(-gift_amount_);
   gamestate->GetLogger()->Log(
       DEBUG, "gift by %d to %d of %f (increase opinion by %f)\n",
       this->GetActor()->GetId(), this->GetTarget()->GetId(), this->gift_amount_,

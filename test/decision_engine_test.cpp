@@ -12,7 +12,7 @@ struct TestActionState {
 class RecordingTestActionDET : public Action {
  public:
   RecordingTestActionDET(Character* actor, TestActionState* tas)
-      : Action("RTA", actor, 1.0, {1.0}), tas_(tas) {}
+      : Action("RTA", actor, 1.0), tas_(tas) {}
 
   bool IsValid(const CVC* gamestate) {
     return true;
@@ -59,8 +59,8 @@ class TestAgent : public Agent {
 class DecisionEngineTest : public ::testing::Test {
  protected:
   void SetUp() override {
-
-    decision_engine_ = DecisionEngine::Create({&a_}, &cvc_, nullptr);
+    logger_.SetLogLevel(WARN);
+    decision_engine_ = DecisionEngine::Create({&a_}, &cvc_, &logger_);
   }
 
   std::mt19937 random_generator_;
@@ -69,6 +69,7 @@ class DecisionEngineTest : public ::testing::Test {
 
   TestAgent a_ = TestAgent(&c_);
 
+  Logger logger_;
   std::unique_ptr<DecisionEngine> decision_engine_;
 };
 

@@ -118,15 +118,9 @@ void DecisionEngine::Learn() {
 }
 
 void DecisionEngine::LogInvalidAction(const Action* action) {
-    std::vector<double> features = action->GetFeatureVector();
-    std::ostringstream s;
-    std::copy(features.begin(), features.end(),
-              std::ostream_iterator<double>(s, "\t"));
-
-    action_log_->Log(INFO, "%d\t%d\t%f\t%s\t%s\t%f\t%s\n", cvc_->Now(),
-            action->GetActor()->GetId(), action->GetActor()->GetMoney(),
-            "INVALID", action->GetActionId(), action->GetScore(),
-            s.str().c_str());
+    action_log_->Log(INFO, "%d\t%d\t%f\t%s\t%s\t%f\n", cvc_->Now(),
+            action->GetActor()->GetId(), action->GetActor()->GetScore(),
+            "INVALID", action->GetActionId(), action->GetScore());
 }
 
 void DecisionEngine::LogAction(const Action* action) {
@@ -136,14 +130,7 @@ void DecisionEngine::LogAction(const Action* action) {
   //  action id
   //  action score
   //  feature vector
-  if (this->action_log_) {
-    std::vector<double> features = action->GetFeatureVector();
-    std::ostringstream s;
-    std::copy(features.begin(), features.end(),
-              std::ostream_iterator<double>(s, "\t"));
-
-    action_log_->Log(INFO, "%d\t%d\t%f\t%s\t%f\t%f\t%s\n", cvc_->Now(),
-            action->GetActor()->GetId(), action->GetActor()->GetMoney(),
-            action->GetActionId(), action->GetReward(), action->GetScore(), s.str().c_str());
-  }
+  action_log_->Log(INFO, "%d\t%d\t%f\t%s\t%f\n", cvc_->Now(),
+            action->GetActor()->GetId(), action->GetActor()->GetScore(),
+            action->GetActionId(), action->GetScore());
 }

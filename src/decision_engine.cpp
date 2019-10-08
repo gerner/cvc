@@ -119,7 +119,7 @@ void DecisionEngine::Learn() {
 
 void DecisionEngine::LogInvalidAction(const Action* action) {
     action_log_->Log(INFO, "%d\t%d\t%f\t%s\t%s\t%f\n", cvc_->Now(),
-            action->GetActor()->GetId(), action->GetActor()->GetMoney(),
+            action->GetActor()->GetId(), action->GetActor()->GetScore(),
             "INVALID", action->GetActionId(), action->GetScore());
 }
 
@@ -130,7 +130,7 @@ void DecisionEngine::LogAction(const Action* action) {
   //  action id
   //  action score
   //  feature vector
-  action_log_->Log(INFO, "%d\t%d\t%f\t%s\t%f\t%f\n", cvc_->Now(),
-            action->GetActor()->GetId(), action->GetActor()->GetMoney(),
+  action_log_->Log(INFO, "%d\t%d\t%f\t%s\t%f\n", cvc_->Now(),
+            action->GetActor()->GetId(), action->GetActor()->GetScore(),
             action->GetActionId(), action->GetScore());
 }

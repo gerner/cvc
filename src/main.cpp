@@ -34,10 +34,12 @@ class ActionsFactory {
                                 random_generator_, learn_logger_));
   }
 
-  template <class AF, class B>
-  std::unique_ptr<B> CreateFactoryPtr() {
-    return std::make_unique<AF>(AF::CreateLearner(
-        num_learners_++, n_, g_, b1_, b2_, random_generator_, learn_logger_));
+  template <class AF, class B, typename... Args>
+  std::unique_ptr<B> CreateFactoryPtr(Args&&... args) {
+    return std::make_unique<AF>(
+        AF::CreateLearner(num_learners_++, n_, g_, b1_, b2_, random_generator_,
+                          learn_logger_),
+        std::forward<Args>(args)...);
   }
  private:
   int num_learners_ = 0;
@@ -59,7 +61,8 @@ class CVCSetup {
         cf_({{"WorkAction", &waf_},
              {"GiveAction", &gaf_},
              {"AskAction", &aaf_},
-             {"TrivialAction", &taf_}}) {
+             {"TrivialAction", &taf_}}),
+       contribution_scorer_(&crunchedin_) {
 
     learn_log_ = fopen("/tmp/learn_log", "a");
     setvbuf(learn_log_, NULL, _IOLBF, 1024*10);
@@ -71,7 +74,7 @@ class CVCSetup {
 
     action_log_ = fopen("/tmp/action_log", "a");
     setvbuf(action_log_, NULL, _IOLBF, 1024*10);
-    action_logger_ = Logger("action", action_log_, WARN);
+    action_logger_ = Logger("action", action_log_, INFO);
 
     f_ = ActionsFactory(n_, g_, b1_, b2_, &random_generator_, &learn_logger_);
 
@@ -87,6 +90,9 @@ class CVCSetup {
     sarsa_action_factories_.push_back(
         f_.CreateFactoryPtr<cvc::sarsa::SARSAWorkActionFactory,
                             cvc::sarsa::ActionFactory>());
+    sarsa_action_factories_.push_back(
+        f_.CreateFactoryPtr<cvc::crunchedin::WorkActionFactory,
+                            cvc::sarsa::ActionFactory>(&crunchedin_));
 
     sarsa_response_factories_.push_back(
         f_.CreateFactoryPtr<cvc::sarsa::SARSAAskSuccessResponseFactory,
@@ -111,6 +117,11 @@ class CVCSetup {
     fclose(policy_log_);
   }
 
+  void SetupCrunchedIn() {
+    crunchedin_.orgs_.emplace_back(
+        std::make_unique<cvc::crunchedin::Organization>(GenCulture()));
+  }
+
   void AddHeuristicAgents(size_t num_heuristic_agents) {
 
     size_t num_characters = c_.size();
@@ -131,16 +142,38 @@ class CVCSetup {
 
     size_t num_characters = c_.size();
     for (size_t i = 0; i < num_learning_agents; i++) {
-      c_.push_back(std::make_unique<Character>(i + num_characters,
-                                              money_dist_(random_generator_)));
-      a_.push_back(
-          std::make_unique<cvc::sarsa::SARSAAgent<cvc::sarsa::MoneyScorer>>(
-              &scorer_, c_.back().get(), action_factories,
-              sarsa_response_map_, &learning_policy_, n_steps_));
+      Character* c = c_.emplace_back(std::make_unique<Character>(
+                                         i + num_characters,
+                                         money_dist_(random_generator_)))
+                         .get();
+      a_.push_back(std::make_unique<
+                   cvc::sarsa::SARSAAgent<cvc::crunchedin::ContributionScorer>>(
+          &contribution_scorer_, c, action_factories, sarsa_response_map_,
+          &learning_policy_, n_steps_));
+
+      //TODO: crunchedin setup
+
+      cvc::crunchedin::CurriculumVitae* cv =
+          crunchedin_.cvs_
+              .emplace_back(std::make_unique<cvc::crunchedin::CurriculumVitae>(
+                  GenCulture()))
+              .get();
+      crunchedin_.cv_lookup_[c] = cv;
+
+      cvc::crunchedin::Role* role =
+          cv->roles_.emplace_back(std::make_unique<cvc::crunchedin::Role>(
+              crunchedin_.orgs_.back().get(), cv, 0)).get();
+
+      double scale = 0.0;
+      for (size_t i = 0; i < cvc::crunchedin::CULTURE_DIMENSIONS; i++) {
+        scale += cv->culture_[i] * role->org_->culture_[i];
+      }
+      logger_.Log(INFO, "%d has theoretical max\t%f\t(%f)\n", c->GetId(),
+                  scale * 2.0 * 10000.0, scale);
     }
   }
 
-  void SetUpEnvironment() {
+  void SetupEnvironment() {
     std::vector<Character*> characters;
     for(auto& character : c_) {
       characters.push_back(character.get());
@@ -164,6 +197,25 @@ class CVCSetup {
   }
 
  private:
+
+  std::array<double, cvc::crunchedin::CULTURE_DIMENSIONS> GenCulture() {
+    std::uniform_real_distribution<> dist(-1.0, 1.0);
+    std::array<double, cvc::crunchedin::CULTURE_DIMENSIONS> culture;
+
+    double magnitude = 0.0;
+    for(size_t i=0; i<cvc::crunchedin::CULTURE_DIMENSIONS; i++) {
+      culture[i] = dist(random_generator_);
+      magnitude += culture[i] * culture[i];
+    }
+    magnitude = sqrt(magnitude);
+
+    //normalize to unit vector
+    for(size_t i=0; i<cvc::crunchedin::CULTURE_DIMENSIONS; i++) {
+      culture[i] /= magnitude;
+    }
+
+    return culture;
+  }
 
   std::random_device rd_;
   std::mt19937 random_generator_;
@@ -220,7 +272,10 @@ class CVCSetup {
 
   cvc::sarsa::DecayingEpsilonGreedyPolicy learning_policy_;
 
-  cvc::sarsa::MoneyScorer scorer_;
+  cvc::sarsa::MoneyScorer money_scorer_;
+  cvc::crunchedin::ContributionScorer contribution_scorer_;
+
+  cvc::crunchedin::CrunchedIn crunchedin_;
 };
 
 int main(int argc, char** argv) {
@@ -230,9 +285,10 @@ int main(int argc, char** argv) {
   int num_heuristic_agents = 0;
   int num_learning_agents = 25;
   CVCSetup setup;
+  setup.SetupCrunchedIn();
   setup.AddHeuristicAgents(num_heuristic_agents);
   setup.AddLearningAgents(num_learning_agents);
-  setup.SetUpEnvironment();
+  setup.SetupEnvironment();
 
   CVC* cvc = setup.GetCVC();
   DecisionEngine* d = setup.GetDecisionEngine();

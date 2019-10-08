@@ -3,6 +3,7 @@
 
 #include <limits>
 #include <vector>
+#include <algorithm>
 
 #include "../core.h"
 #include "../action.h"
@@ -15,9 +16,12 @@ class CurriculumVitae;
 struct Role;
 
 struct Organization {
+  Organization(std::array<double, CULTURE_DIMENSIONS> culture)
+      : culture_(culture) {}
+
   CurriculumVitae* ceo_;
   std::vector<Role*> current_staff_;
-  int start_tick_;
+  int start_tick_ = 0;
   int end_tick_ = std::numeric_limits<int>::max();
 
   std::array<double, CULTURE_DIMENSIONS> culture_;
@@ -29,6 +33,10 @@ struct Organization {
 };
 
 struct Role {
+  Role(Organization* org, CurriculumVitae* cv, int start_tick)
+      : cv_(cv), org_(org), start_tick_(start_tick) {
+    contributions_at_start_ = org_->contributions_;
+  }
 
   CurriculumVitae* cv_;
   Organization* org_;
@@ -53,6 +61,9 @@ struct Role {
 //records career history, but also the crunchedin representation of a character
 class CurriculumVitae {
  public:
+  CurriculumVitae(std::array<double, CULTURE_DIMENSIONS> culture)
+      : culture_(culture) {}
+
   double TotalContribution() const {
     double score = 0.0;
     for(auto& role: roles_) {
@@ -73,13 +84,16 @@ class CurriculumVitae {
     assert(scale <= 1.0);
 
     //scale to (0,1]
-    scale /= 0.5;
+    scale *= 0.5;
     scale += 0.5;
 
-    contribution *= scale;
+    double actual_contribution = contribution * scale;
 
-    role->contribution_ += contribution;
-    role->org_->contributions_ += contribution;
+    assert(actual_contribution <= contribution);
+    assert(actual_contribution >= 0.0);
+
+    role->contribution_ += actual_contribution;
+    role->org_->contributions_ += actual_contribution;
   }
 
   std::array<double, CULTURE_DIMENSIONS> GetCulture() const {
@@ -90,7 +104,6 @@ class CurriculumVitae {
     return roles_.back().get();
   }
 
- private:
   std::vector<std::unique_ptr<Role>> roles_;
   std::array<double, CULTURE_DIMENSIONS> culture_;
 };
@@ -105,13 +118,13 @@ class WorkAction : public Action {
  public:
   WorkAction(Character* character, double score, Role* role,
              double contribution)
-      : Action(__FUNCTION__, character, score),
+      : Action("CrunchedInWork", character, score),
         role_(role),
         contribution_(contribution) {}
 
   bool IsValid(const CVC* cvc) override {
     //make sure we're still employed
-    return cvc->Now() > role_->end_tick_;
+    return cvc->Now() < role_->end_tick_;
   }
 
   void TakeEffect(CVC* gamestate) override {
@@ -125,10 +138,14 @@ class WorkAction : public Action {
 
 class ContributionScorer {
  public:
+  ContributionScorer(CrunchedIn* crunchedin) : crunchedin_(crunchedin) {}
+
   double Score(CVC* cvc, Character* character) {
+    assert(crunchedin_->cv_lookup_.find(character) !=
+           crunchedin_->cv_lookup_.end());
     CurriculumVitae* cv = crunchedin_->cv_lookup_[character];
     assert(cv);
-    return cv->TotalContribution();
+    return std::max(cv->TotalContribution(),character->GetMoney());
   }
 
  private:
